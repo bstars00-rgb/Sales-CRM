@@ -7,6 +7,8 @@ import type { Notification, AlertSeverity } from '@/types'
 
 const SEVERITY_STRIPE: Record<AlertSeverity, string> = {
   critical: 'bg-red-500',
+  high: 'bg-orange-500',
+  medium: 'bg-amber-500',
   warning: 'bg-amber-500',
   info: 'bg-blue-500',
 }

@@ -14,6 +14,8 @@ const DEFAULT_FILTERS: GlobalFilters = {
   clients: [],
   countries: [],
   hotels: [],
+  regions: [],
+  tiers: [],
   dateRange: { start: '2026-01-01', end: '2026-12-31' },
   currency: 'JPY',
 }

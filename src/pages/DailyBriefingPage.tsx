@@ -272,7 +272,7 @@ export default function DailyBriefingPage() {
         <section className="bg-card border border-border rounded-lg p-4">
           <h3 className="text-sm font-semibold mb-3">긴급 클라이언트</h3>
           <div className="space-y-2">
-            {briefing.urgentClients.map((uc) => {
+            {(briefing.urgentClients ?? []).map((uc) => {
               const style = SEVERITY_STYLES[uc.severity]
               const Icon = style.icon
               return (
@@ -295,7 +295,7 @@ export default function DailyBriefingPage() {
         <section className="bg-card border border-border rounded-lg p-4">
           <h3 className="text-sm font-semibold mb-3">오늘 일정</h3>
           <div className="space-y-2">
-            {briefing.todaySchedule.map((item, i) => (
+            {(briefing.todaySchedule ?? []).map((item, i) => (
               <div
                 key={i}
                 className="flex items-center gap-3 p-2.5 rounded-md hover:bg-accent transition-colors"
@@ -323,7 +323,7 @@ export default function DailyBriefingPage() {
       <section className="bg-card border border-border rounded-lg p-4">
         <h3 className="text-sm font-semibold mb-3">Action Items</h3>
         <div className="space-y-2">
-          {briefing.actionItems.map((item, i) => (
+          {(briefing.actionItems ?? []).map((item, i) => (
             <div
               key={i}
               className="flex items-start gap-3 p-3 rounded-md hover:bg-accent transition-colors"

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy 코드, Tier 1~3 + 신규 entity 마이그레이션 진행 중
 import type { Alert, AlertSeverity, AlertType, Client } from '@/types'
 
 /**

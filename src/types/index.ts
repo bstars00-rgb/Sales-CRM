@@ -48,9 +48,10 @@ export interface User {
 // ========== Channel (구 Client, FR-006) ==========
 export type ChannelType = 'OTA' | 'Wholesaler' | 'Corporate' | 'TMC' | 'Meta'
 export type Region = 'EA' | 'SEA' | 'SA' | 'ME' | 'OC'
-export type Tier = 1 | 2 | 3 // OQ-007: Tier 1(전략) / 2(성장) / 3(신규)
+// OQ-007: Tier 1(전략) / 2(성장) / 3(신규). 0/4는 legacy 호환을 위해 유니언에 포함
+export type Tier = 0 | 1 | 2 | 3 | 4
 export type PipelineStage = 'Contact' | 'NDA' | 'InDev' | 'Testing' | 'Live'
-export type ContractStatus = 'Active' | 'Pending' | 'Expired'
+export type ContractStatus = 'Active' | 'Pending' | 'Expired' | 'Suspended' | 'Inactive'
 export type SettlementType = 'Weekly' | 'Monthly' | 'Net30' | 'Net60'
 
 export interface Contact {
@@ -463,8 +464,8 @@ export type AlertType =
 
 export interface Alert {
   id: string
-  channelId: string
-  channelName: string
+  channelId?: string
+  channelName?: string
   type: AlertType
   severity: AlertSeverity
   status: AlertStatus
@@ -476,20 +477,26 @@ export interface Alert {
   readAt?: string
   resolvedAt?: string
   resolutionMemo?: string
+
+  // legacy
+  clientId?: string
+  clientName?: string
 }
 
 export interface Notification {
   id: string
-  userId: string
+  userId?: string
   type: 'credit' | 'booking' | 'pipeline' | 'contract' | 'okr' | 'task' | 'system'
   title: string
-  body: string
+  body?: string
+  message?: string // legacy alias of body
   severity: AlertSeverity
   read: boolean
   link?: string
   createdAt: string
   linkedAlertId?: string
   linkedChannelId?: string
+  linkedClientId?: string // legacy
 }
 
 // ========== Performance ==========
