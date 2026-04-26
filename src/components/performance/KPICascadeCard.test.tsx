@@ -27,11 +27,10 @@ describe('KPICascadeCard', () => {
 
   it('5단계 L1~L5 모두 렌더', () => {
     render(<KPICascadeCard />, { wrapper: Wrapper })
-    expect(screen.getByText(/L1/)).toBeInTheDocument()
-    expect(screen.getByText(/L2/)).toBeInTheDocument()
-    expect(screen.getByText(/L3/)).toBeInTheDocument()
-    expect(screen.getByText(/L4/)).toBeInTheDocument()
-    expect(screen.getByText(/L5/)).toBeInTheDocument()
+    // 헤더 'KPI Cascade L1~L5'와 충돌 회피 — 마커 (^L\d$) 정확 매칭
+    const markers = screen.getAllByText(/^L\d$/)
+    expect(markers).toHaveLength(5)
+    expect(markers.map((m) => m.textContent)).toEqual(['L1', 'L2', 'L3', 'L4', 'L5'])
   })
 
   it('Tier 가중치 50/30/20 표시', () => {

@@ -183,15 +183,16 @@ describe('ActivityStore.addBulkCarryOver', () => {
     resetActivityStoreCounters()
   })
 
+  // mockTasks가 'u-tm'(Ben)에 오늘 5개 시드 → Grace(u-grace) 사용으로 격리
   it('어제 미완료 일괄 → 오늘로 이월 (TS3-003 원자성)', () => {
     const { result } = renderHook(useStoreWithAuth, { wrapper })
-    act(() => result.current.auth.login('ben@oh.com', 'demo'))
+    act(() => result.current.auth.login('grace@oh.com', 'demo'))
     const yesterday = '2026-12-26'
     const ids: string[] = []
     act(() => {
       for (let i = 1; i <= 2; i++) {
         const t = result.current.store.addTask({
-          ownerUserId: 'u-tm',
+          ownerUserId: 'u-grace',
           date: yesterday,
           category: 'Internal',
           title: `Yest ${i}`,
@@ -210,7 +211,7 @@ describe('ActivityStore.addBulkCarryOver', () => {
 
   it('6개 한도 초과 시 일부만 added 나머지 skipped', () => {
     const { result } = renderHook(useStoreWithAuth, { wrapper })
-    act(() => result.current.auth.login('ben@oh.com', 'demo'))
+    act(() => result.current.auth.login('grace@oh.com', 'demo'))
     const today = new Date().toISOString().slice(0, 10)
     const yesterday = '2026-12-25'
     const yIds: string[] = []
@@ -218,7 +219,7 @@ describe('ActivityStore.addBulkCarryOver', () => {
       // 오늘 5개 미리 + 어제 3개 → 일괄 시 6번째 1개만 들어가고 2개 skip
       for (let i = 1; i <= 5; i++) {
         result.current.store.addTask({
-          ownerUserId: 'u-tm',
+          ownerUserId: 'u-grace',
           date: today,
           category: 'Internal',
           title: `Today ${i}`,
@@ -227,7 +228,7 @@ describe('ActivityStore.addBulkCarryOver', () => {
       }
       for (let i = 1; i <= 3; i++) {
         const t = result.current.store.addTask({
-          ownerUserId: 'u-tm',
+          ownerUserId: 'u-grace',
           date: yesterday,
           category: 'Internal',
           title: `Yest ${i}`,
