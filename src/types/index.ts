@@ -340,6 +340,38 @@ export interface ContractChange {
   rejectionReason?: string
 }
 
+// ========== Opportunity / Deal (FR-026) — Round 6 격상 ==========
+export type OpportunityType = 'NewIntegration' | 'Promotion' | 'Renewal' | 'Upsell' | 'Expansion'
+export type OpportunityStage = 'Contact' | 'NDA' | 'InDev' | 'Testing' | 'Won' | 'Lost'
+export type OpportunityCurrency = 'JPY' | 'KRW' | 'USD'
+
+// FR-027 Win/Loss Analysis lostReason enum
+export type LostReason = 'Pricing' | 'Feature' | 'Competitor' | 'Timing' | 'Internal' | 'Other'
+
+export interface Opportunity {
+  id: string
+  channelId: string
+  name: string
+  type: OpportunityType
+  amount: number
+  currency: OpportunityCurrency
+  closeDate: string // ISO 8601
+  probability: number // 0-100
+  stage: OpportunityStage
+  ownerUserId: string
+  sourceActivityIds: string[]
+  lostReason?: LostReason
+  decisionNote?: string // Lost 전이 시 필수 (≥20자)
+  createdAt: string
+  updatedAt: string
+}
+
+// FR-028 Forecast Categories
+export type ForecastCategory = 'Commit' | 'BestCase' | 'Pipeline' | 'Omitted'
+
+// Channel.lifecycleStage (Round 6: Pipeline 단계와 분리)
+export type ChannelLifecycle = 'New' | 'Active' | 'Renewing' | 'Churned'
+
 // ========== Decision Request (FR-014) ==========
 export type DecisionCategory = 'Pricing' | 'Contract' | 'Resource' | 'Strategy'
 export type DecisionStatus = 'Open' | 'UnderReview' | 'Decided' | 'Deferred'

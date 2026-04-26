@@ -15,6 +15,7 @@ import {
   FileSignature,
   Sparkles,
   Settings,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ const TABS = [
   { to: '/trends', label: 'Trends', icon: TrendingUp },
   { to: '/live-map', label: 'Live Map', icon: MapPin },
   { to: '/crm', label: 'CRM', icon: Users },
+  { to: '/opportunities', label: 'Opportunities', icon: Briefcase },
   { to: '/contracts', label: 'Contracts', icon: FileSignature },
   { to: '/decisions', label: 'Decisions', icon: Sparkles },
   { to: '/integration', label: 'Integration', icon: Plug },
