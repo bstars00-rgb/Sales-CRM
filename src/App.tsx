@@ -18,6 +18,9 @@ import LiveMapPage from '@/pages/LiveMapPage'
 import IntegrationPage from '@/pages/IntegrationPage'
 import WeeklyBriefPage from '@/pages/WeeklyBriefPage'
 import PipelinePage from '@/pages/PipelinePage'
+import ContractsPage from '@/pages/ContractsPage'
+import DecisionsPage from '@/pages/DecisionsPage'
+import SettingsPage from '@/pages/SettingsPage'
 import OnboardingModal from '@/components/common/OnboardingModal'
 import { useState, useEffect } from 'react'
 
@@ -69,6 +72,9 @@ export default function App() {
                   <Route path="/integration" element={<IntegrationPage />} />
                   <Route path="/pipeline" element={<PipelinePage />} />
                   <Route path="/weekly-brief" element={<WeeklyBriefPage />} />
+                  <Route path="/contracts" element={<ContractsPage />} />
+                  <Route path="/decisions" element={<DecisionsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

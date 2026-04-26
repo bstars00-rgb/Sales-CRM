@@ -12,6 +12,9 @@ import {
   CalendarDays,
   GitBranch,
   FileText,
+  FileSignature,
+  Sparkles,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -26,8 +29,11 @@ const TABS = [
   { to: '/trends', label: 'Trends', icon: TrendingUp },
   { to: '/live-map', label: 'Live Map', icon: MapPin },
   { to: '/crm', label: 'CRM', icon: Users },
+  { to: '/contracts', label: 'Contracts', icon: FileSignature },
+  { to: '/decisions', label: 'Decisions', icon: Sparkles },
   { to: '/integration', label: 'Integration', icon: Plug },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ] as const
 
 export default function TabNavigation() {
