@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Activity, Briefcase, Building2, Clock, Globe, MapPin, RefreshCw, TrendingUp,
-  Plane, Users, AlertCircle, ChevronRight, ImageOff,
+  Plane, Users, AlertCircle, ChevronRight, ImageOff, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { mockCityData } from '@/mocks/livemap'
+import { mockCityData, type CityData } from '@/mocks/livemap'
 
-// 이미지 base path 호환 (Vite dev='/' / production='/Sales-CRM/')
+// 이미지 base path 호환 (dev '/' / production '/Sales-CRM/')
 const BASE = (import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'
 const HERO_IMAGE = `${BASE.replace(/\/$/, '')}/images/livemap-asia.png`
 
-const REGION_COLORS: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-  'East Asia': { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30', icon: '🇰🇷' },
-  'SE Asia': { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30', icon: '🇸🇬' },
-  'South Asia': { bg: 'bg-orange-500/10', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-500/30', icon: '🇮🇳' },
-  'Middle East': { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/30', icon: '🇦🇪' },
-  'Oceania': { bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-500/30', icon: '🇦🇺' },
+const REGION_COLORS: Record<string, { bg: string; text: string; border: string; icon: string; ring: string; hex: string }> = {
+  'East Asia': { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30', icon: '🇰🇷', ring: 'ring-blue-400', hex: '#3b82f6' },
+  'SE Asia': { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30', icon: '🇸🇬', ring: 'ring-emerald-400', hex: '#10b981' },
+  'South Asia': { bg: 'bg-orange-500/10', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-500/30', icon: '🇮🇳', ring: 'ring-orange-400', hex: '#f97316' },
+  'Middle East': { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/30', icon: '🇦🇪', ring: 'ring-purple-400', hex: '#a855f7' },
+  'Oceania': { bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-500/30', icon: '🇦🇺', ring: 'ring-cyan-400', hex: '#06b6d4' },
 }
 
 const REGION_NAME_KO: Record<string, string> = {
@@ -26,14 +26,42 @@ const REGION_NAME_KO: Record<string, string> = {
   'Oceania': '오세아니아',
 }
 
-const PEAK_HOUR_RANGE = '19:00 ~ 22:00'
+/**
+ * 이미지 viewport 기준 좌표 변환.
+ * 이미지의 실제 지리 범위 (눈으로 측정):
+ * - 좌측: 인도(75°E) ~ 우측: 일본 동단(150°E)
+ * - 상단: 몽골/중국 북부(50°N) ~ 하단: 인도네시아 발리 남쪽(-12°S)
+ */
+function toMapPosition(lat: number, lng: number) {
+  const minLng = 70
+  const maxLng = 152
+  const minLat = -12
+  const maxLat = 52
+  const x = ((lng - minLng) / (maxLng - minLng)) * 100
+  const y = ((maxLat - lat) / (maxLat - minLat)) * 100
+  return {
+    left: `${Math.max(2, Math.min(98, x))}%`,
+    top: `${Math.max(2, Math.min(98, y))}%`,
+  }
+}
+
+/** 마커 크기 — recentBookings 기반 (8~28px) */
+function markerSize(recentBookings: number, max: number) {
+  const min = 10
+  const maxSize = 28
+  const ratio = max > 0 ? recentBookings / max : 0
+  return Math.round(min + (maxSize - min) * Math.sqrt(ratio))
+}
 
 export default function LiveMapPage() {
   const [imageError, setImageError] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
   const [lastUpdate, setLastUpdate] = useState(new Date())
+  const [hoveredCity, setHoveredCity] = useState<CityData | null>(null)
+  const [selectedCity, setSelectedCity] = useState<CityData | null>(null)
+  const [filterRegion, setFilterRegion] = useState<string | 'all'>('all')
 
-  // KPI 자동 갱신 (시뮬레이션 — 실제는 WebSocket / polling)
+  // 자동 갱신 30초
   useEffect(() => {
     const id = setInterval(() => {
       setRefreshTick((t) => t + 1)
@@ -42,19 +70,35 @@ export default function LiveMapPage() {
     return () => clearInterval(id)
   }, [])
 
-  // 실데이터 집계
-  const totalBookings = 128_745 // 이미지 매칭
-  const activeCities = 14
+  // 동아시아/동남아시아 위주의 도시만 (이미지 viewport 안에 들어오는 도시)
+  const visibleCities = useMemo(() => {
+    return mockCityData.filter((c) => {
+      // 이미지 범위 내만 표시
+      if (c.lng < 70 || c.lng > 152) return false
+      if (c.lat < -12 || c.lat > 52) return false
+      if (filterRegion !== 'all' && c.region !== filterRegion) return false
+      return true
+    })
+  }, [filterRegion])
+
+  const maxBookings = useMemo(() => {
+    return Math.max(0, ...visibleCities.map((c) => c.recentBookings))
+  }, [visibleCities])
+
+  // KPI
+  const totalBookings = 128_745
+  const activeCities = visibleCities.length
   const realtimeRate = 2_847 + (refreshTick % 50)
-  const dod = 18.6 // 전일 대비
+  const dod = 18.6
 
   const regionSummary = useMemo(() => {
-    const map = new Map<string, { ttv: number; rn: number; cities: number }>()
+    const map = new Map<string, { ttv: number; rn: number; cities: number; bookings: number }>()
     for (const c of mockCityData) {
-      const cur = map.get(c.region) ?? { ttv: 0, rn: 0, cities: 0 }
+      const cur = map.get(c.region) ?? { ttv: 0, rn: 0, cities: 0, bookings: 0 }
       cur.ttv += c.ttv
       cur.rn += c.roomNights
       cur.cities += 1
+      cur.bookings += c.recentBookings
       map.set(c.region, cur)
     }
     return Array.from(map.entries()).sort((a, b) => b[1].ttv - a[1].ttv)
@@ -64,8 +108,7 @@ export default function LiveMapPage() {
     () => [...mockCityData].sort((a, b) => b.recentBookings - a.recentBookings).slice(0, 10),
     []
   )
-  const maxBookings = top10[0]?.recentBookings ?? 1
-
+  const top10Max = top10[0]?.recentBookings ?? 1
   const totalActivity = mockCityData.reduce((s, c) => s + c.recentBookings, 0)
 
   return (
@@ -104,37 +147,178 @@ export default function LiveMapPage() {
         <KPI icon={Plane} label="해외 도시 비중" value="78%" delta="▲ 4.2%p (전일 대비)" positive />
       </section>
 
-      {/* Hero (이미지) + Side cards */}
+      {/* Hero (인터랙티브 지도) + Side cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Hero Image — 도시별 실시간 예약 시각화 */}
+        {/* 인터랙티브 지도 */}
         <section className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">아시아 실시간 예약 분포</h3>
+              <span className="text-[10px] text-muted-foreground">
+                · 마커 클릭 → 상세
+              </span>
             </div>
-            <span className="text-[10px] text-muted-foreground">13개 도시 · 최근 1시간</span>
+            {/* 권역 필터 */}
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                onClick={() => setFilterRegion('all')}
+                className={cn(
+                  'px-2 py-0.5 text-[10px] rounded border',
+                  filterRegion === 'all'
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border hover:bg-accent'
+                )}
+              >
+                전체 ({mockCityData.filter(c => c.lng >= 70 && c.lng <= 152 && c.lat >= -12 && c.lat <= 52).length})
+              </button>
+              {(['East Asia', 'SE Asia'] as const).map((r) => {
+                const colors = REGION_COLORS[r]
+                const count = mockCityData.filter((c) => c.region === r && c.lng >= 70 && c.lng <= 152 && c.lat >= -12 && c.lat <= 52).length
+                return (
+                  <button
+                    key={r}
+                    onClick={() => setFilterRegion(r)}
+                    className={cn(
+                      'px-2 py-0.5 text-[10px] rounded border',
+                      filterRegion === r
+                        ? `${colors.bg} ${colors.text} ${colors.border} font-semibold`
+                        : 'border-border hover:bg-accent text-muted-foreground'
+                    )}
+                  >
+                    {colors.icon} {REGION_NAME_KO[r]} ({count})
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          <div className="relative bg-slate-950 dark:bg-slate-950 aspect-[16/9]">
+
+          {/* Map container */}
+          <div className="relative bg-slate-950 aspect-[16/9] overflow-hidden">
             {imageError ? (
               <FallbackHero />
             ) : (
-              <img
-                src={HERO_IMAGE}
-                alt="아시아 도시별 실시간 예약 현황"
-                className="w-full h-full object-cover"
-                onError={() => setImageError(true)}
-              />
+              <>
+                <img
+                  src={HERO_IMAGE}
+                  alt="아시아 지도"
+                  className="absolute inset-0 w-full h-full object-cover opacity-100"
+                  onError={() => setImageError(true)}
+                />
+                {/* 어두운 오버레이 — 마커 가독성 */}
+                <div className="absolute inset-0 bg-slate-950/30 pointer-events-none" />
+
+                {/* 도시 마커 */}
+                {visibleCities.map((c) => {
+                  const pos = toMapPosition(c.lat, c.lng)
+                  const size = markerSize(c.recentBookings, maxBookings)
+                  const colors = REGION_COLORS[c.region]
+                  const isSelected = selectedCity?.name === c.name
+                  return (
+                    <button
+                      key={c.name}
+                      onClick={() => setSelectedCity((prev) => (prev?.name === c.name ? null : c))}
+                      onMouseEnter={() => setHoveredCity(c)}
+                      onMouseLeave={() => setHoveredCity(null)}
+                      style={{
+                        left: pos.left,
+                        top: pos.top,
+                        width: size,
+                        height: size,
+                        backgroundColor: colors.hex,
+                      }}
+                      className={cn(
+                        'absolute -translate-x-1/2 -translate-y-1/2 rounded-full',
+                        'border-2 border-white/80 shadow-lg',
+                        'hover:scale-125 transition-transform cursor-pointer',
+                        'before:absolute before:inset-0 before:rounded-full before:animate-ping before:opacity-50',
+                        isSelected && 'ring-4 ring-white scale-125',
+                      )}
+                      title={`${c.nameKo} · ${c.recentBookings}건`}
+                      aria-label={`${c.nameKo} 도시 마커, 최근 예약 ${c.recentBookings}건`}
+                    >
+                      <span className="sr-only">{c.nameKo}</span>
+                    </button>
+                  )
+                })}
+
+                {/* Hover Tooltip */}
+                {hoveredCity && (
+                  <div
+                    className="absolute pointer-events-none z-20"
+                    style={{
+                      left: toMapPosition(hoveredCity.lat, hoveredCity.lng).left,
+                      top: toMapPosition(hoveredCity.lat, hoveredCity.lng).top,
+                      transform: 'translate(-50%, calc(-100% - 18px))',
+                    }}
+                  >
+                    <div className="bg-slate-900/95 text-white text-xs rounded-md px-2.5 py-1.5 whitespace-nowrap border border-white/20 shadow-xl">
+                      <div className="font-semibold">{hoveredCity.nameKo}</div>
+                      <div className="text-[10px] opacity-80">
+                        {hoveredCity.country} · {hoveredCity.recentBookings.toLocaleString()}건
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* LIVE 배지 */}
+                <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur text-[10px] font-semibold text-emerald-400 border border-emerald-500/30 z-10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  LIVE
+                </div>
+
+                {/* 범례 */}
+                <div className="absolute bottom-3 left-3 z-10 bg-black/50 backdrop-blur rounded-md px-3 py-2 text-[10px] text-white">
+                  <div className="font-semibold mb-1">예약건 (오늘)</div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 border border-white/50" />
+                    <span>적음</span>
+                    <div className="flex items-center gap-0.5">
+                      <span>→</span>
+                    </div>
+                    <div className="w-5 h-5 rounded-full bg-blue-500 border border-white/50" />
+                    <span>많음</span>
+                  </div>
+                </div>
+              </>
             )}
-            {/* 라이브 스파클 오버레이 */}
-            <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              LIVE
-            </div>
           </div>
+
+          {/* 선택된 도시 상세 패널 */}
+          {selectedCity && (
+            <div className="px-4 py-3 border-t border-border bg-muted/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: REGION_COLORS[selectedCity.region].hex }}
+                    />
+                    <h4 className="text-sm font-semibold">{selectedCity.nameKo}</h4>
+                    <span className="text-xs text-muted-foreground">{selectedCity.name}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                      {REGION_NAME_KO[selectedCity.region]}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mt-2 text-xs">
+                    <Stat label="실시간 예약" value={selectedCity.recentBookings.toLocaleString()} />
+                    <Stat label="TTV (YTD)" value={`¥${(selectedCity.ttv / 1_000_000_000).toFixed(1)}B`} />
+                    <Stat label="Room Nights" value={`${(selectedCity.roomNights / 1000).toFixed(0)}K`} />
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedCity(null)}
+                  aria-label="상세 닫기"
+                  className="p-1 rounded hover:bg-accent text-muted-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
-        {/* Top 10 Cities Card */}
+        {/* Top 10 Cities */}
         <section className="bg-card border border-border rounded-xl">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
@@ -142,7 +326,7 @@ export default function LiveMapPage() {
           </div>
           <ul className="p-3 space-y-2">
             {top10.map((c, i) => {
-              const pct = (c.recentBookings / maxBookings) * 100
+              const pct = (c.recentBookings / top10Max) * 100
               return (
                 <li key={c.name} className="flex items-center gap-2.5">
                   <span
@@ -153,7 +337,15 @@ export default function LiveMapPage() {
                   >
                     {i + 1}
                   </span>
-                  <span className="text-xs font-medium truncate w-16 shrink-0">{c.nameKo}</span>
+                  <button
+                    onClick={() => {
+                      setSelectedCity(c)
+                      setFilterRegion('all')
+                    }}
+                    className="text-xs font-medium truncate w-16 shrink-0 text-left hover:text-primary"
+                  >
+                    {c.nameKo}
+                  </button>
                   <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
                   </div>
@@ -165,16 +357,18 @@ export default function LiveMapPage() {
             })}
           </ul>
           <div className="px-4 py-2.5 border-t border-border">
-            <button className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs border border-border hover:bg-accent">
+            <button
+              onClick={() => setFilterRegion('all')}
+              className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs border border-border hover:bg-accent"
+            >
               전체 도시 보기 <ChevronRight className="w-3 h-3" />
             </button>
           </div>
         </section>
       </div>
 
-      {/* 권역별 카드 + 인사이트 */}
+      {/* 권역별 + 인사이트 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Region Distribution */}
         <section className="lg:col-span-2 bg-card border border-border rounded-xl">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <MapPin className="w-4 h-4 text-muted-foreground" />
@@ -184,12 +378,14 @@ export default function LiveMapPage() {
             {regionSummary.map(([region, data]) => {
               const colors = REGION_COLORS[region]
               return (
-                <div
+                <button
                   key={region}
+                  onClick={() => setFilterRegion(filterRegion === region ? 'all' : region)}
                   className={cn(
-                    'rounded-lg border p-3',
+                    'rounded-lg border p-3 text-left transition-all hover:shadow-md',
                     colors.bg,
-                    colors.border
+                    colors.border,
+                    filterRegion === region && 'ring-2 ring-primary'
                   )}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -203,15 +399,14 @@ export default function LiveMapPage() {
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
                     <span>{data.cities}개 도시</span>
-                    <span>RN {(data.rn / 1000).toFixed(0)}K</span>
+                    <span>예약 {data.bookings}</span>
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
         </section>
 
-        {/* Key Insights */}
         <section className="bg-card border border-border rounded-xl">
           <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-muted-foreground" />
@@ -237,14 +432,14 @@ export default function LiveMapPage() {
               color="text-violet-600 dark:text-violet-400"
               bg="bg-violet-500/10"
               title="피크 시간대"
-              detail={PEAK_HOUR_RANGE}
+              detail="19:00 ~ 22:00"
             />
             <Insight
               icon={Users}
               color="text-cyan-600 dark:text-cyan-400"
               bg="bg-cyan-500/10"
               title={`총 활성 예약 ${totalActivity.toLocaleString()}건`}
-              detail={`13개 도시 합산 (최근 1시간)`}
+              detail={`${mockCityData.length}개 도시 합산 (최근 1시간)`}
             />
           </div>
         </section>
@@ -283,6 +478,15 @@ function KPI({
   )
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold">{value}</p>
+    </div>
+  )
+}
+
 function Insight({
   icon: Icon, color, bg, title, detail,
 }: {
@@ -312,7 +516,7 @@ function FallbackHero() {
       <p className="text-sm font-semibold">실시간 지도 이미지 로드 실패</p>
       <p className="text-xs text-slate-500 max-w-md">
         <code className="px-1.5 py-0.5 bg-slate-800 rounded">public/images/livemap-asia.png</code>
-        에 이미지를 저장해 주세요. 우측 카드에서 도시별 실시간 예약 데이터를 확인할 수 있습니다.
+        에 이미지를 저장해 주세요.
       </p>
     </div>
   )

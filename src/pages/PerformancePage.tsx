@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { mockKPI, mockChannelData, mockQuarterData, mockYearlyData } from '@/mocks/kpi'
 import { formatCurrency, formatPercent } from '@/utils/kpiCalc'
@@ -135,8 +135,8 @@ export default function PerformancePage() {
             </thead>
             <tbody>
               {mockQuarterData.map((q) => (
-                <>
-                  <tr key={q.quarter} className="border-b border-border bg-muted/20 font-semibold">
+                <Fragment key={q.quarter}>
+                  <tr className="border-b border-border bg-muted/20 font-semibold">
                     <td className="px-4 py-2.5">{q.quarter}</td>
                     <td className="px-4 py-2.5 text-right">{formatCurrency(q.totalTTV)}</td>
                     <td className="px-4 py-2.5 text-right">{formatCurrency(q.totalRevenue)}</td>
@@ -156,7 +156,7 @@ export default function PerformancePage() {
                       </td>
                     </tr>
                   ))}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

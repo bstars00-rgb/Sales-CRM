@@ -1,4 +1,3 @@
-// @ts-nocheck — legacy 코드, Tier 1~3 + 신규 entity 마이그레이션 진행 중
 import { useState, useMemo } from 'react'
 import {
   X, Sparkles, Building2, Mail, AlertTriangle, Activity as ActivityIcon, FileSignature,
@@ -198,13 +197,13 @@ export default function ClientDetailModal({ client, open, onClose }: ClientDetai
         {/* ===== Header ===== */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
-            <span className={cn('w-2.5 h-2.5 rounded-full', STATUS_DOT[client.status])} />
+            <span className={cn('w-2.5 h-2.5 rounded-full', STATUS_DOT[(client.status ?? client.contractStatus ?? 'Active')])} />
             <h2 className="text-lg font-semibold">{client.name}</h2>
-            <span className={cn('px-2.5 py-0.5 text-xs font-semibold rounded-full', TIER_COLORS[client.autoTier])}>
-              Tier {client.autoTier}
+            <span className={cn('px-2.5 py-0.5 text-xs font-semibold rounded-full', TIER_COLORS[(client.autoTier ?? client.tier ?? 1)])}>
+              Tier {client.autoTier ?? client.tier ?? 1}
             </span>
             <span className="text-xs text-muted-foreground px-2 py-0.5 bg-muted rounded">
-              {client.status}
+              {client.status ?? client.contractStatus ?? 'Active'}
             </span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-accent transition-colors">
@@ -299,7 +298,13 @@ function TabAISummary({
   canEditTarget: boolean
   onTargetTierChange: (t: TierLevel) => void
 }) {
-  const effectiveTier = client.autoTier
+  // Legacy + 신규 필드 호환 — 한 곳에서 정규화
+  const effectiveTier: TierLevel = (client.autoTier ?? client.tier ?? 1) as TierLevel
+  const ytdTTV = client.ytdTTV ?? client.ttvJPY ?? 0
+  const ytdRevenue = client.ytdRevenue ?? client.revenueJPY ?? 0
+  const ytdRoomNights = client.ytdRoomNights ?? client.rn ?? 0
+  const rank = client.rank ?? 0
+  const sharePercent = client.sharePercent ?? 0
 
   return (
     <div className="space-y-5">
@@ -312,7 +317,7 @@ function TabAISummary({
         <p className="text-sm leading-relaxed">
           <span className="font-semibold">{client.name}</span>은(는){' '}
           <span className="font-semibold">Tier {effectiveTier} ({TIER_LABELS[effectiveTier]})</span> 고객으로{' '}
-          YTD TTV <span className="font-semibold">{formatCurrency(client.ytdTTV)}</span>을 달성했습니다.
+          YTD TTV <span className="font-semibold">{formatCurrency(ytdTTV)}</span>을 달성했습니다.
           {yoyGrowth !== null && (
             <> 전년 대비{' '}
               <span className={cn('font-semibold', yoyGrowth >= 0 ? 'text-emerald-600' : 'text-red-500')}>
@@ -321,7 +326,7 @@ function TabAISummary({
               {yoyGrowth >= 0 ? '성장' : '감소'}하였습니다.
             </>
           )}
-          {' '}{client.region} 지역 <span className="font-semibold">#{client.rank}위</span> (점유율 {client.sharePercent}%)를 차지하고 있습니다.
+          {' '}{client.region} 지역 <span className="font-semibold">#{rank}위</span> (점유율 {sharePercent}%)를 차지하고 있습니다.
         </p>
       </div>
 
@@ -329,7 +334,7 @@ function TabAISummary({
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="text-sm font-semibold mb-3">Tier {effectiveTier} 액션 플랜 — {TIER_LABELS[effectiveTier]}</h3>
         <ul className="space-y-2">
-          {TIER_PLANS[effectiveTier].map((plan, i) => (
+          {(TIER_PLANS[effectiveTier] ?? []).map((plan: string, i: number) => (
             <li key={i} className="flex items-start gap-2 text-sm">
               <ChevronRight className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <span>{plan}</span>
@@ -344,23 +349,23 @@ function TabAISummary({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-xs text-muted-foreground">TTV</p>
-            <p className="text-base font-bold">{formatCurrency(client.ytdTTV)}</p>
+            <p className="text-base font-bold">{formatCurrency(ytdTTV)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Revenue</p>
-            <p className="text-base font-bold">{formatCurrency(client.ytdRevenue)}</p>
+            <p className="text-base font-bold">{formatCurrency(ytdRevenue)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Room Nights</p>
-            <p className="text-base font-bold">{client.ytdRoomNights.toLocaleString()}</p>
+            <p className="text-base font-bold">{ytdRoomNights.toLocaleString()}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">순위</p>
-            <p className="text-base font-bold">#{client.rank}</p>
+            <p className="text-base font-bold">#{rank}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">점유율</p>
-            <p className="text-base font-bold">{client.sharePercent}%</p>
+            <p className="text-base font-bold">{sharePercent}%</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">YoY 성장률</p>
@@ -377,8 +382,8 @@ function TabAISummary({
         <div className="flex items-center gap-6">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Auto Tier (자동)</p>
-            <span className={cn('px-3 py-1 text-sm font-semibold rounded-full', TIER_COLORS[client.autoTier])}>
-              Tier {client.autoTier}
+            <span className={cn('px-3 py-1 text-sm font-semibold rounded-full', TIER_COLORS[effectiveTier])}>
+              Tier {effectiveTier}
             </span>
           </div>
           <div>
@@ -449,8 +454,8 @@ function TabClientInfo({
           <div>
             <p className="text-xs text-muted-foreground">상태</p>
             <div className="flex items-center gap-2">
-              <span className={cn('w-2 h-2 rounded-full', STATUS_DOT[client.status])} />
-              <span className="font-medium">{client.status}</span>
+              <span className={cn('w-2 h-2 rounded-full', STATUS_DOT[(client.status ?? client.contractStatus ?? 'Active')])} />
+              <span className="font-medium">{client.status ?? client.contractStatus ?? 'Active'}</span>
             </div>
           </div>
           <div>
@@ -507,12 +512,12 @@ function TabClientInfo({
           )}
           <div>
             <p className="text-xs text-muted-foreground">신용 한도</p>
-            <p className="font-medium">{formatCurrency(client.creditLimit)}</p>
+            <p className="font-medium">{formatCurrency(client.creditLimit ?? client.creditLimitJPY ?? 0)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">신용 사용률</p>
-            <p className={cn('font-medium', client.creditUsagePercent >= 80 ? 'text-red-500' : client.creditUsagePercent >= 60 ? 'text-amber-600' : '')}>
-              {client.creditUsagePercent}%
+            <p className={cn('font-medium', (client.creditUsagePercent ?? 0) >= 80 ? 'text-red-500' : (client.creditUsagePercent ?? 0) >= 60 ? 'text-amber-600' : '')}>
+              {client.creditUsagePercent ?? 0}%
             </p>
           </div>
         </div>
