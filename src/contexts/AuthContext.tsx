@@ -96,9 +96,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    const previousId = user?.id
     setUser(null)
     // BR-001-13 보안 데이터 클리어 — 다음 사용자 노출 방지
     localStorage.removeItem('sales-crm:recent-search')
+    // PL-R3-008: 로그아웃한 사용자의 briefing-state / carryover-dismissed 키 정리
+    if (previousId) {
+      const prefix = `sales-crm:briefing-state:${previousId}:`
+      const dismissPrefix = `sales-crm:carryover-dismissed:${previousId}:`
+      const keysToRemove: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (!k) continue
+        if (k.startsWith(prefix) || k.startsWith(dismissPrefix)) keysToRemove.push(k)
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k))
+    }
     // ATTEMPT_KEY는 의도적으로 보존 (잠금 우회 차단). IT팀 리셋은 별도 API
   }
 

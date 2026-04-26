@@ -37,9 +37,11 @@ function ProtectedShell() {
     if (user && !user.onboardedAt) setOnboardOpen(true)
   }, [user])
 
+  // PL-R3-001: user.id 변경 시 MainLayout key 변경 → 컴포넌트 강제 리마운트
+  // (직급 전환 시 이전 사용자 BriefingState 깜빡임 방지)
   return (
     <>
-      <MainLayout />
+      <MainLayout key={user?.id ?? 'anon'} />
       <OnboardingModal open={onboardOpen} onClose={() => setOnboardOpen(false)} />
     </>
   )
