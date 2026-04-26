@@ -226,9 +226,8 @@ function TeamPanel() {
 
 function IntegrationPanel() {
   return (
-    <Section title="통합 (API / SSO)" hint="Anthropic API · RSS 피드 · Azure AD SSO">
+    <Section title="통합 (API / SSO)" hint="RSS 피드 · Azure AD SSO · SCM CRM">
       <div className="grid grid-cols-1 gap-3 text-sm">
-        <Toggle label="Anthropic API 키" status="연결됨" desc="sk-ant-***...***c8a · 마지막 호출 12분 전" />
         <Toggle label="RSS 피드" status="연결됨" desc="6개 OTA · 마지막 갱신 23분 전" />
         <Toggle label="Azure AD SSO" status="연결됨" desc="OhMyHotel.onmicrosoft.com · OQ-001 결정" />
         <Toggle label="SCM CRM 시즌성" status="연결됨" desc="OQ-008 read-only · 매일 02:00 sync" />

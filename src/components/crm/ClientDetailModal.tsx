@@ -14,8 +14,8 @@ import ActivityTimeline from './ActivityTimeline'
 import type { Client, Contact, TierLevel, Alert, AlertStatus } from '@/types'
 
 // ===== Constants =====
-// FR-007 6탭: Overview / 채널정보 / Activity / Tasks / 계약변경 / 알림
-const TABS = ['AI Summary', '채널 정보', 'Activity', 'Tasks', '계약변경', '알림'] as const
+// FR-007 6탭: 요약 / 채널정보 / Activity / Tasks / 계약변경 / 알림
+const TABS = ['요약', '채널 정보', 'Activity', 'Tasks', '계약변경', '알림'] as const
 type TabKey = typeof TABS[number]
 
 // Tier 1~3 + legacy 0/4 fallback
@@ -91,7 +91,7 @@ interface ClientDetailModalProps {
 // ===== Component =====
 export default function ClientDetailModal({ client, open, onClose }: ClientDetailModalProps) {
   const { user, canEditTier } = useAuth()
-  const [activeTab, setActiveTab] = useState<TabKey>('AI Summary')
+  const [activeTab, setActiveTab] = useState<TabKey>('요약')
   const [targetTier, setTargetTier] = useState<TierLevel | null>(null)
 
   // Contact editing
@@ -111,7 +111,7 @@ export default function ClientDetailModal({ client, open, onClose }: ClientDetai
     setTargetTier((client.targetTier ?? null) as TierLevel | null)
     setContacts([...client.contacts])
     setLocalAlerts(mockAlerts.filter(a => a.clientId === client.id))
-    setActiveTab('AI Summary')
+    setActiveTab('요약')
     setShowContactForm(false)
     setEditingContact(null)
     setResolvingAlertId(null)
@@ -239,7 +239,7 @@ export default function ClientDetailModal({ client, open, onClose }: ClientDetai
 
         {/* ===== Content ===== */}
         <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'AI Summary' && (
+          {activeTab === '요약' && (
             <TabAISummary
               client={client}
               yoyGrowth={yoyGrowth}
@@ -288,7 +288,7 @@ export default function ClientDetailModal({ client, open, onClose }: ClientDetai
   )
 }
 
-// ===== Tab 1: AI Summary =====
+// ===== Tab 1: 요약 =====
 function TabAISummary({
   client, yoyGrowth, targetTier, canEditTarget, onTargetTierChange,
 }: {
@@ -308,11 +308,10 @@ function TabAISummary({
 
   return (
     <div className="space-y-5">
-      {/* AI Summary Card */}
+      {/* 고객 요약 카드 */}
       <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold text-primary">AI 고객 요약</h3>
+          <h3 className="text-sm font-semibold text-primary">고객 요약</h3>
         </div>
         <p className="text-sm leading-relaxed">
           <span className="font-semibold">{client.name}</span>은(는){' '}

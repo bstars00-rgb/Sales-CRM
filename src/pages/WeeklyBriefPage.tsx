@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowUpRight, ArrowDownRight, Loader2, FileDown, Share2, CheckCircle2,
-  RefreshCw, Building2, AlertTriangle, Tag, Sparkles, Compass, Briefcase, ListChecks,
+  Building2, AlertTriangle, Tag, Sparkles, Compass, Briefcase, ListChecks,
+  Plus, Trash2, Link2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -16,47 +17,29 @@ const PIC_BY_NAME: Record<string, string> = {
   Ben: 'u-tm', Grace: 'u-grace', Jane: 'u-jane', Jasmine: 'u-jasmine', Sophia: 'u-grace',
 }
 
-interface BriefSection {
+interface BriefItem {
+  id: string
+  channel: string
+  content: string
+  action: string
+  sourceActivityIds: string[]
+}
+
+interface BriefSectionDef {
+  key: string
   title: string
   icon: typeof Building2
   color: string
-  items: TeamActionRow[]
 }
 
-/**
- * BR-005-3 단일 귀속 분류 — if/else if 체인으로 한 row가 정확히 1개 섹션에만 들어감 (QA-006).
- * 우선순위: 이슈 → 프로모션 → 신규 → 오픈/테스트 → Next Week → 지역별(기본).
- */
-function classify(report: RealReport): BriefSection[] {
-  const rows = report.teamInput?.teamActions ?? []
-  const sections: BriefSection[] = [
-    { title: '신규 채널 개발', icon: Building2, color: 'text-emerald-600', items: [] },
-    { title: '오픈/테스트', icon: Sparkles, color: 'text-cyan-600', items: [] },
-    { title: '프로모션·영업', icon: Tag, color: 'text-violet-600', items: [] },
-    { title: '이슈 대응', icon: AlertTriangle, color: 'text-red-600', items: [] },
-    { title: '지역별 하이라이트', icon: Compass, color: 'text-blue-600', items: [] },
-    { title: 'Next Week Focus', icon: ListChecks, color: 'text-amber-600', items: [] },
-  ]
-  for (const row of rows) {
-    const t = (row.type || '').toLowerCase()
-    const c = (row.content || '').toLowerCase()
-    const a = (row.action || '').toLowerCase()
-    if (t.includes('이슈') || t.includes('issue') || t.includes('문제')) {
-      sections[3].items.push(row)
-    } else if (t.includes('프로모션') || t.includes('promo')) {
-      sections[2].items.push(row)
-    } else if (t.includes('신규') || c.includes('new') || c.includes('agreement')) {
-      sections[0].items.push(row)
-    } else if (t.includes('test') || c.includes('go-live') || c.includes('테스트')) {
-      sections[1].items.push(row)
-    } else if (a.includes('next') || a.includes('plan') || a.includes('expect')) {
-      sections[5].items.push(row)
-    } else {
-      sections[4].items.push(row)
-    }
-  }
-  return sections
-}
+const SECTION_DEFS: BriefSectionDef[] = [
+  { key: 'new-channel', title: '신규 채널 개발', icon: Building2, color: 'text-emerald-600' },
+  { key: 'open-test', title: '오픈/테스트', icon: Sparkles, color: 'text-cyan-600' },
+  { key: 'promotion', title: '프로모션·영업', icon: Tag, color: 'text-violet-600' },
+  { key: 'issue', title: '이슈 대응', icon: AlertTriangle, color: 'text-red-600' },
+  { key: 'regional', title: '지역별 하이라이트', icon: Compass, color: 'text-blue-600' },
+  { key: 'next-week', title: 'Next Week Focus', icon: ListChecks, color: 'text-amber-600' },
+]
 
 function aggregateContrib(report: RealReport) {
   const map = new Map<string, { count: number; channels: Set<string> }>()
@@ -86,6 +69,11 @@ export default function WeeklyBriefPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState<'Draft' | 'UnderReview' | 'Confirmed' | 'Published'>('Draft')
 
+  // 섹션별 수동 입력 상태 — Manager가 직접 추가/삭제
+  const [sectionItems, setSectionItems] = useState<Record<string, BriefItem[]>>(() =>
+    Object.fromEntries(SECTION_DEFS.map((s) => [s.key, []]))
+  )
+
   useEffect(() => {
     setLoading(true)
     loadReport(week)
@@ -93,8 +81,14 @@ export default function WeeklyBriefPage() {
       .finally(() => setLoading(false))
   }, [week])
 
-  const sections = useMemo(() => (report ? classify(report) : []), [report])
+  // 주차 변경 시 작성 내용 초기화 + 상태 Draft
+  useEffect(() => {
+    setSectionItems(Object.fromEntries(SECTION_DEFS.map((s) => [s.key, []])))
+    setStatus('Draft')
+  }, [week])
+
   const teamContrib = useMemo(() => (report ? aggregateContrib(report) : []), [report])
+  const teamActions = report?.teamInput?.teamActions ?? []
 
   if (loading || !report) {
     return (
@@ -107,9 +101,41 @@ export default function WeeklyBriefPage() {
 
   const k = report.kpi
   const dep = report.ctrip
-  const totalActions = report.teamInput?.teamActions?.length ?? 0
+  const totalItems = Object.values(sectionItems).reduce((s, arr) => s + arr.length, 0)
+
+  const addItem = (sectionKey: string, base?: TeamActionRow) => {
+    const newItem: BriefItem = {
+      id: `i-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      channel: base?.channel ?? '',
+      content: base?.content ?? '',
+      action: base?.action ?? '',
+      sourceActivityIds: base ? [`team-action-${teamActions.indexOf(base)}`] : [],
+    }
+    setSectionItems((prev) => ({
+      ...prev,
+      [sectionKey]: [...(prev[sectionKey] ?? []), newItem],
+    }))
+  }
+
+  const updateItem = (sectionKey: string, id: string, patch: Partial<BriefItem>) => {
+    setSectionItems((prev) => ({
+      ...prev,
+      [sectionKey]: prev[sectionKey].map((i) => (i.id === id ? { ...i, ...patch } : i)),
+    }))
+  }
+
+  const removeItem = (sectionKey: string, id: string) => {
+    setSectionItems((prev) => ({
+      ...prev,
+      [sectionKey]: prev[sectionKey].filter((i) => i.id !== id),
+    }))
+  }
 
   const handleConfirm = () => {
+    if (totalItems === 0) {
+      toast.error('최소 1개 항목을 작성하세요')
+      return
+    }
     setStatus('Confirmed')
     toast.success('Weekly Sales Brief 확정', {
       description: '내부 PDF + 외부 공유 토큰(24시간) 생성 완료 (시뮬레이션)',
@@ -133,13 +159,6 @@ export default function WeeklyBriefPage() {
     }
     toast.success('PDF 다운로드 시작 (시뮬레이션)')
   }
-  const handleRegenerate = () => {
-    if (status === 'Confirmed') {
-      toast.error('이미 확정됨 — Manager 권한으로 status 되돌리기 후 재생성')
-      return
-    }
-    toast('Brief 재생성 (시뮬레이션)')
-  }
 
   const StatusBadge = () => {
     const colorMap = {
@@ -156,7 +175,7 @@ export default function WeeklyBriefPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
+    <div className="max-w-7xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -165,7 +184,7 @@ export default function WeeklyBriefPage() {
             <StatusBadge />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {report.period.start} ~ {report.period.end} · 자동 집계: {totalActions}건 · sourceActivityIds 추적
+            {report.period.start} ~ {report.period.end} · 수동 작성 {totalItems}건 · 팀 활동 {teamActions.length}건 참고
           </p>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -176,23 +195,13 @@ export default function WeeklyBriefPage() {
           >
             {AVAILABLE_WEEKS.map((w) => <option key={w} value={w}>{w}</option>)}
           </select>
-          {canManage && (
-            <>
-              <button
-                onClick={handleRegenerate}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent"
-              >
-                <RefreshCw className="w-3.5 h-3.5" /> 재생성
-              </button>
-              {status !== 'Confirmed' && (
-                <button
-                  onClick={handleConfirm}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" /> 확정 → 전사 공유
-                </button>
-              )}
-            </>
+          {canManage && status !== 'Confirmed' && (
+            <button
+              onClick={handleConfirm}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> 확정 → 전사 공유
+            </button>
           )}
           <button
             onClick={handleDownload}
@@ -232,44 +241,70 @@ export default function WeeklyBriefPage() {
         <KpiTile label="Top3 Non-Ctrip" value={`${(dep.top3Pct * 100).toFixed(1)}%`} wow={null} />
       </section>
 
-      {/* 6 Sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {sections.map((s) => {
-          const Icon = s.icon
-          return (
-            <section key={s.title} className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Icon className={cn('w-4 h-4', s.color)} />
-                <h3 className="text-sm font-semibold">{s.title}</h3>
-                <span className="text-xs text-muted-foreground">({s.items.length})</span>
-              </div>
-              {s.items.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-3">해당 항목 없음</p>
-              ) : (
-                <ul className="space-y-2">
-                  {s.items.slice(0, 6).map((row, i) => (
-                    <li key={i} className="border-l-2 border-primary/30 pl-3 py-1">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-xs font-semibold">{row.channel}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{row.type}</span>
-                        <span className="text-[10px] text-muted-foreground">· {row.author}</span>
-                      </div>
-                      <p className="text-xs text-foreground/80 mt-0.5">{row.content}</p>
-                      {row.action && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">↳ {row.action}</p>
-                      )}
-                    </li>
-                  ))}
-                  {s.items.length > 6 && (
-                    <li className="text-[11px] text-muted-foreground italic pl-3">
-                      … 외 {s.items.length - 6}건
-                    </li>
+      {/* Main 2-col: 섹션 작성 폼(좌) + 팀 활동 참조(우) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* 6 Sections — 수동 작성 */}
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {SECTION_DEFS.map((s) => (
+            <SectionCard
+              key={s.key}
+              def={s}
+              items={sectionItems[s.key] ?? []}
+              readonly={!canManage || status === 'Confirmed'}
+              onAdd={() => addItem(s.key)}
+              onUpdate={(id, patch) => updateItem(s.key, id, patch)}
+              onRemove={(id) => removeItem(s.key, id)}
+            />
+          ))}
+        </div>
+
+        {/* 팀 활동 참조 패널 */}
+        <aside className="bg-card border border-border rounded-lg p-4 h-fit lg:sticky lg:top-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Link2 className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">팀 활동 로그 (참고)</h3>
+            <span className="text-xs text-muted-foreground">{teamActions.length}건</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mb-2">
+            행 클릭 시 적합한 섹션에 자동 첨부 (sourceActivityIds 추적).
+          </p>
+          <ul className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {teamActions.length === 0 ? (
+              <li className="text-xs text-muted-foreground py-3">집계된 활동 없음</li>
+            ) : (
+              teamActions.map((row, i) => (
+                <li
+                  key={i}
+                  className="border border-border/60 rounded p-2 text-xs hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                >
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-semibold">{row.channel}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{row.type}</span>
+                    <span className="text-[10px] text-muted-foreground">· {row.author}</span>
+                  </div>
+                  <p className="text-[11px] text-foreground/80 mt-1 line-clamp-2">{row.content}</p>
+                  {canManage && status !== 'Confirmed' && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {SECTION_DEFS.map((s) => (
+                        <button
+                          key={s.key}
+                          onClick={() => addItem(s.key, row)}
+                          className={cn(
+                            'text-[10px] px-1.5 py-0.5 rounded border border-border/60 hover:bg-primary/10 hover:border-primary/40',
+                            s.color,
+                          )}
+                          title={`${s.title}에 추가`}
+                        >
+                          + {s.title.slice(0, 4)}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                </ul>
-              )}
-            </section>
-          )
-        })}
+                </li>
+              ))
+            )}
+          </ul>
+        </aside>
       </div>
 
       {/* Team Contribution */}
@@ -315,6 +350,103 @@ export default function WeeklyBriefPage() {
         </section>
       )}
     </div>
+  )
+}
+
+function SectionCard({
+  def, items, readonly, onAdd, onUpdate, onRemove,
+}: {
+  def: BriefSectionDef
+  items: BriefItem[]
+  readonly: boolean
+  onAdd: () => void
+  onUpdate: (id: string, patch: Partial<BriefItem>) => void
+  onRemove: (id: string) => void
+}) {
+  const Icon = def.icon
+  return (
+    <section className="bg-card border border-border rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Icon className={cn('w-4 h-4', def.color)} />
+          <h3 className="text-sm font-semibold">{def.title}</h3>
+          <span className="text-xs text-muted-foreground">({items.length})</span>
+        </div>
+        {!readonly && (
+          <button
+            onClick={onAdd}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-border hover:bg-accent"
+            title="항목 추가"
+          >
+            <Plus className="w-3 h-3" /> 추가
+          </button>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-3">
+          {readonly ? '작성된 항목 없음' : '"+ 추가" 또는 우측 활동 로그에서 항목을 가져오세요'}
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((item) => (
+            <li key={item.id} className="border-l-2 border-primary/30 pl-3 py-1">
+              {readonly ? (
+                <>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-xs font-semibold">{item.channel || '(채널 없음)'}</span>
+                  </div>
+                  <p className="text-xs text-foreground/80 mt-0.5">{item.content}</p>
+                  {item.action && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">↳ {item.action}</p>
+                  )}
+                  {item.sourceActivityIds.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                      sourceActivityIds: {item.sourceActivityIds.join(', ')}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={item.channel}
+                      onChange={(e) => onUpdate(item.id, { channel: e.target.value })}
+                      placeholder="채널명"
+                      className="flex-1 h-6 text-xs px-2 rounded border border-input bg-background"
+                    />
+                    <button
+                      onClick={() => onRemove(item.id)}
+                      className="p-1 text-muted-foreground hover:text-destructive"
+                      title="삭제"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <textarea
+                    value={item.content}
+                    onChange={(e) => onUpdate(item.id, { content: e.target.value })}
+                    placeholder="내용"
+                    rows={2}
+                    className="w-full text-xs px-2 py-1 rounded border border-input bg-background"
+                  />
+                  <input
+                    value={item.action}
+                    onChange={(e) => onUpdate(item.id, { action: e.target.value })}
+                    placeholder="후속 액션 (선택)"
+                    className="w-full h-6 text-[11px] px-2 rounded border border-input bg-background"
+                  />
+                  {item.sourceActivityIds.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground/70">
+                      🔗 {item.sourceActivityIds.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
