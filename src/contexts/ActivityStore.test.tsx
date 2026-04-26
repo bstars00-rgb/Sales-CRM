@@ -152,7 +152,7 @@ describe('ActivityStore.toggleTaskDone', () => {
     expect(created?.type).toBe('Promotion') // category 매핑
   })
 
-  it('Done → InProgress 토글 시 Activity 미생성 (TC-R2-002)', () => {
+  it('Done → InProgress 토글 시 5분 이내 자동 Activity 회수 (TC-R2-002 수정 / PL-R2-004)', () => {
     const { result } = renderHook(useStoreWithAuth, { wrapper })
     act(() => result.current.auth.login('ben@oh.com', 'demo'))
     let task: ReturnType<typeof result.current.store.addTask> | undefined
@@ -165,11 +165,15 @@ describe('ActivityStore.toggleTaskDone', () => {
         status: 'Planned',
       })
     })
+    // Done 전환 → Activity 자동 생성
     act(() => result.current.store.toggleTaskDone(task!.id))
     const countAfterDone = result.current.store.activities.length
+    // 즉시 토글 해제 (5분 이내) → 자동 Activity 회수, 1개 줄어들어야 정상
     act(() => result.current.store.toggleTaskDone(task!.id))
-    expect(result.current.store.activities.length).toBe(countAfterDone)
-    expect(result.current.store.tasks.find((t) => t.id === task!.id)?.status).toBe('InProgress')
+    expect(result.current.store.activities.length).toBe(countAfterDone - 1)
+    const updated = result.current.store.tasks.find((t) => t.id === task!.id)
+    expect(updated?.status).toBe('InProgress')
+    expect(updated?.doneActivityIds?.length ?? 0).toBe(0)
   })
 })
 

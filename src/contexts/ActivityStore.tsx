@@ -145,54 +145,55 @@ export function ActivityStoreProvider({ children }: { children: ReactNode }) {
 
   /**
    * 어제 미완료 Task 일괄 carry-over (TS3-003 원자성).
-   * setTasks 단일 트랜잭션 내에서 6개 한도 검사 + 추가 → 동시성 안전.
+   * tasks closure로 동기적 계산 → setTasks는 단순 append. setTasks updater의
+   * 비동기 실행에 의존하지 않아 React 18 Strict Mode에서도 안전.
    */
   const addBulkCarryOver: ActivityStoreCtx['addBulkCarryOver'] = useCallback(
     (taskIds) => {
       if (!user) return { added: 0, skipped: taskIds.length }
       const today = new Date().toISOString().slice(0, 10)
+      const targets = tasks.filter((t) => taskIds.includes(t.id))
+      const sameDay = tasks.filter((t) => t.ownerUserId === user.id && t.date === today)
+      const usedRanks = new Set(sameDay.map((t) => t.rank))
+      const created: Task[] = []
       let added = 0
       let skipped = 0
-      setTasks((prev) => {
-        const targets = prev.filter((t) => taskIds.includes(t.id))
-        const sameDay = prev.filter((t) => t.ownerUserId === user.id && t.date === today)
-        const usedRanks = new Set(sameDay.map((t) => t.rank))
-        const created: Task[] = []
-        for (const target of targets) {
-          if (sameDay.length + created.length >= 6) {
-            skipped++
-            continue
-          }
-          let rank: TaskRank = 1
-          for (let r = 1; r <= 6; r++) {
-            if (!usedRanks.has(r as TaskRank)) {
-              rank = r as TaskRank
-              usedRanks.add(rank)
-              break
-            }
-          }
-          const now = new Date().toISOString()
-          created.push({
-            id: nextTaskId(),
-            ownerUserId: user.id,
-            date: today,
-            rank,
-            channelId: target.channelId,
-            category: target.category,
-            title: target.title,
-            expectedOutcome: target.expectedOutcome,
-            status: 'Planned',
-            carryOver: true,
-            createdAt: now,
-            updatedAt: now,
-          })
-          added++
+      for (const target of targets) {
+        if (sameDay.length + created.length >= 6) {
+          skipped++
+          continue
         }
-        return [...prev, ...created]
-      })
+        let rank: TaskRank = 1
+        for (let r = 1; r <= 6; r++) {
+          if (!usedRanks.has(r as TaskRank)) {
+            rank = r as TaskRank
+            usedRanks.add(rank)
+            break
+          }
+        }
+        const now = new Date().toISOString()
+        created.push({
+          id: nextTaskId(),
+          ownerUserId: user.id,
+          date: today,
+          rank,
+          channelId: target.channelId,
+          category: target.category,
+          title: target.title,
+          expectedOutcome: target.expectedOutcome,
+          status: 'Planned',
+          carryOver: true,
+          createdAt: now,
+          updatedAt: now,
+        })
+        added++
+      }
+      if (created.length > 0) {
+        setTasks((prev) => [...prev, ...created])
+      }
       return { added, skipped }
     },
-    [user]
+    [user, tasks]
   )
 
   const updateTask: ActivityStoreCtx['updateTask'] = useCallback((id, patch) => {
