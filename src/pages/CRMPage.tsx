@@ -1,23 +1,24 @@
-// @ts-nocheck — legacy 코드, Tier 1~3 + 신규 entity 마이그레이션 진행 중
 import { useState, useMemo } from 'react'
 import { Search, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { mockClients } from '@/mocks/clients'
 import { formatCurrency } from '@/utils/kpiCalc'
 import ClientDetailModal from '@/components/crm/ClientDetailModal'
-import type { Client, ClientStatus, TierLevel } from '@/types'
+import type { Client, ContractStatus } from '@/types'
 
-const TIER_COLORS: Record<TierLevel, string> = {
-  0: 'bg-gray-100 text-gray-600',
-  1: 'bg-blue-50 text-blue-700',
-  2: 'bg-emerald-50 text-emerald-700',
-  3: 'bg-amber-50 text-amber-700',
-  4: 'bg-purple-50 text-purple-700',
+// Tier 1~3 (정식) + 0/4 (legacy 호환)
+const TIER_COLORS: Record<number, string> = {
+  0: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+  1: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+  2: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  3: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  4: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300',
 }
 
-const STATUS_COLORS: Record<ClientStatus, string> = {
+const STATUS_COLORS: Record<ContractStatus, string> = {
   Active: 'bg-emerald-500',
   Pending: 'bg-amber-500',
+  Expired: 'bg-orange-500',
   Suspended: 'bg-red-500',
   Inactive: 'bg-gray-400',
 }
@@ -43,16 +44,16 @@ export default function CRMPage() {
       list = list.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
-          c.country.toLowerCase().includes(q)
+          (c.country ?? '').toLowerCase().includes(q)
       )
     }
     if (regionFilter) list = list.filter((c) => c.region === regionFilter)
-    if (tierFilter) list = list.filter((c) => c.autoTier === Number(tierFilter))
-    if (statusFilter) list = list.filter((c) => c.status === statusFilter)
+    if (tierFilter) list = list.filter((c) => (c.autoTier ?? c.tier) === Number(tierFilter))
+    if (statusFilter) list = list.filter((c) => (c.status ?? c.contractStatus) === statusFilter)
 
     list.sort((a, b) => {
-      if (sort === 'ttv') return b.ytdTTV - a.ytdTTV
-      if (sort === 'tier') return b.autoTier - a.autoTier
+      if (sort === 'ttv') return (b.ytdTTV ?? 0) - (a.ytdTTV ?? 0)
+      if (sort === 'tier') return (b.autoTier ?? 0) - (a.autoTier ?? 0)
       return a.name.localeCompare(b.name)
     })
 
@@ -144,35 +145,35 @@ export default function CRMPage() {
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className={cn('w-2 h-2 rounded-full shrink-0', STATUS_COLORS[client.status])} />
+                <span className={cn('w-2 h-2 rounded-full shrink-0', STATUS_COLORS[(client.status ?? client.contractStatus ?? 'Active') as ContractStatus])} />
                 <h3 className="text-sm font-semibold truncate">{client.name}</h3>
               </div>
               <span
                 className={cn(
                   'px-2 py-0.5 text-xs font-semibold rounded-full shrink-0',
-                  TIER_COLORS[client.autoTier]
+                  TIER_COLORS[(client.autoTier ?? client.tier ?? 1) as number]
                 )}
               >
-                T{client.autoTier}
+                T{client.autoTier ?? client.tier ?? 1}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-3">
               <div>
                 <p className="text-xs text-muted-foreground">YTD TTV</p>
-                <p className="text-sm font-semibold">{formatCurrency(client.ytdTTV)}</p>
+                <p className="text-sm font-semibold">{formatCurrency(client.ytdTTV ?? client.ttvJPY ?? 0)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">점유율</p>
-                <p className="text-sm font-semibold">{client.sharePercent}%</p>
+                <p className="text-sm font-semibold">{client.sharePercent ?? 0}%</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">예약</p>
-                <p className="text-sm">{client.ytdBookings.toLocaleString()} 건</p>
+                <p className="text-sm">{(client.ytdBookings ?? client.bookings ?? 0).toLocaleString()} 건</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Room Nights</p>
-                <p className="text-sm">{client.ytdRoomNights.toLocaleString()}</p>
+                <p className="text-sm">{(client.ytdRoomNights ?? client.rn ?? 0).toLocaleString()}</p>
               </div>
             </div>
 
@@ -180,10 +181,10 @@ export default function CRMPage() {
               <span className="text-xs text-muted-foreground">
                 {client.region} &middot; {client.country}
               </span>
-              {client.creditUsagePercent >= 70 && (
+              {(client.creditUsagePercent ?? 0) >= 70 && (
                 <span className="inline-flex items-center gap-1 text-xs text-amber-600">
                   <AlertTriangle className="w-3 h-3" />
-                  신용 {client.creditUsagePercent}%
+                  신용 {client.creditUsagePercent ?? 0}%
                 </span>
               )}
             </div>
