@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { Bell, ChevronDown, Settings, LogOut, User as UserIcon, Sun, Moon, Monitor } from 'lucide-react'
+import { Bell, ChevronDown, Settings, LogOut, User as UserIcon, Sun, Moon, Monitor, Search } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { mockAlerts } from '@/mocks/alerts'
 import NotificationCenter from './NotificationCenter'
+import GlobalSearchModal from '@/components/common/GlobalSearchModal'
 import type { UserRole } from '@/types'
 import { ROLE_LABELS } from '@/types'
 
@@ -16,6 +17,7 @@ export default function Header() {
   const [roleOpen, setRoleOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const roleRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
 
@@ -37,6 +39,20 @@ export default function Header() {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Cmd+K / Ctrl+K 글로벌 검색 (FR-016)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const isFormElement = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !isFormElement) {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [])
 
   return (
@@ -84,6 +100,17 @@ export default function Header() {
               </div>
             )}
           </div>
+
+          {/* Global Search (Cmd+K) */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border hover:bg-accent transition-colors text-sm text-muted-foreground"
+            title="글로벌 검색 (Cmd+K)"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">검색</span>
+            <kbd className="hidden md:inline-flex items-center gap-0.5 px-1 py-0.5 text-[9px] font-mono rounded bg-muted text-muted-foreground/80">⌘K</kbd>
+          </button>
 
           {/* Theme Toggle */}
           <button
@@ -145,6 +172,9 @@ export default function Header() {
 
       {/* Notification Center Panel */}
       <NotificationCenter open={notifOpen} onClose={() => setNotifOpen(false)} />
+
+      {/* Global Search Modal (FR-016 Cmd+K) */}
+      <GlobalSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   )
 }

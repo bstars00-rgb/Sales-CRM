@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Activity, Briefcase, Building2, Clock, Globe, MapPin, RefreshCw, TrendingUp,
-  Plane, Users, AlertCircle, ChevronRight, ImageOff, X,
+  Plane, Users, AlertCircle, ChevronRight, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { mockCityData, type CityData } from '@/mocks/livemap'
-
-// 이미지 base path 호환 (dev '/' / production '/Sales-CRM/')
-const BASE = (import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'
-const HERO_IMAGE = `${BASE.replace(/\/$/, '')}/images/livemap-asia.png`
 
 const REGION_COLORS: Record<string, { bg: string; text: string; border: string; icon: string; ring: string; hex: string }> = {
   'East Asia': { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/30', icon: '🇰🇷', ring: 'ring-blue-400', hex: '#3b82f6' },
@@ -54,7 +50,6 @@ function markerSize(recentBookings: number, max: number) {
 }
 
 export default function LiveMapPage() {
-  const [imageError, setImageError] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
   const [lastUpdate, setLastUpdate] = useState(new Date())
   const [hoveredCity, setHoveredCity] = useState<CityData | null>(null)
@@ -193,22 +188,11 @@ export default function LiveMapPage() {
             </div>
           </div>
 
-          {/* Map container */}
-          <div className="relative bg-slate-950 aspect-[16/9] overflow-hidden">
-            {imageError ? (
-              <FallbackHero />
-            ) : (
-              <>
-                <img
-                  src={HERO_IMAGE}
-                  alt="아시아 지도"
-                  className="absolute inset-0 w-full h-full object-cover opacity-100"
-                  onError={() => setImageError(true)}
-                />
-                {/* 어두운 오버레이 — 마커 가독성 */}
-                <div className="absolute inset-0 bg-slate-950/30 pointer-events-none" />
+          {/* Map container — Claude AI 생성 SVG 다크 배경 (이미지 미사용) */}
+          <div className="relative bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 aspect-[16/9] overflow-hidden">
+            <MapBackground />
 
-                {/* 도시 마커 */}
+            {/* 도시 마커 */}
                 {visibleCities.map((c) => {
                   const pos = toMapPosition(c.lat, c.lng)
                   const size = markerSize(c.recentBookings, maxBookings)
@@ -280,8 +264,6 @@ export default function LiveMapPage() {
                     <span>많음</span>
                   </div>
                 </div>
-              </>
-            )}
           </div>
 
           {/* 선택된 도시 상세 패널 */}
@@ -509,15 +491,60 @@ function Insight({
   )
 }
 
-function FallbackHero() {
+/**
+ * Claude AI 생성 SVG 다크 지도 배경 — 이미지 의존성 제거.
+ * 점선 그리드 + 동심원 ping + 권역별 발광 영역으로 "실시간 분포" 시각 효과.
+ */
+function MapBackground() {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 text-slate-300 p-6 text-center">
-      <ImageOff className="w-10 h-10 text-slate-500" />
-      <p className="text-sm font-semibold">실시간 지도 이미지 로드 실패</p>
-      <p className="text-xs text-slate-500 max-w-md">
-        <code className="px-1.5 py-0.5 bg-slate-800 rounded">public/images/livemap-asia.png</code>
-        에 이미지를 저장해 주세요.
-      </p>
-    </div>
+    <>
+      {/* 발광 그라디언트 — 권역별 */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* East Asia (오른쪽 위) */}
+        <div className="absolute rounded-full blur-3xl opacity-40" style={{ left: '60%', top: '10%', width: '35%', height: '50%', backgroundColor: '#3b82f6' }} />
+        {/* SE Asia (가운데 아래) */}
+        <div className="absolute rounded-full blur-3xl opacity-30" style={{ left: '20%', top: '50%', width: '45%', height: '50%', backgroundColor: '#10b981' }} />
+        {/* South Asia (왼쪽) */}
+        <div className="absolute rounded-full blur-3xl opacity-25" style={{ left: '0%', top: '15%', width: '30%', height: '40%', backgroundColor: '#f97316' }} />
+      </div>
+
+      {/* 점선 그리드 패턴 */}
+      <svg
+        className="absolute inset-0 w-full h-full opacity-30 pointer-events-none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <pattern id="dotgrid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1" fill="rgba(148, 163, 184, 0.6)" />
+          </pattern>
+          <radialGradient id="vignette" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="black" stopOpacity="0" />
+            <stop offset="100%" stopColor="black" stopOpacity="0.6" />
+          </radialGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dotgrid)" />
+        <rect width="100%" height="100%" fill="url(#vignette)" />
+      </svg>
+
+      {/* 위경도 라벨 (장식용) */}
+      <div className="absolute top-2 right-3 text-[9px] text-slate-500/60 pointer-events-none font-mono">
+        <div>50°N</div>
+        <div className="mt-[20%]">30°N</div>
+        <div className="mt-[20%]">10°N</div>
+        <div className="mt-[20%]">10°S</div>
+      </div>
+      <div className="absolute bottom-2 left-3 right-3 flex justify-between text-[9px] text-slate-500/60 pointer-events-none font-mono">
+        <span>70°E</span>
+        <span>90°E</span>
+        <span>110°E</span>
+        <span>130°E</span>
+        <span>150°E</span>
+      </div>
+
+      {/* 동심원 ping (중앙 발산 효과) */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-2 h-2 rounded-full bg-cyan-400/30 animate-ping" style={{ animationDuration: '4s' }} />
+      </div>
+    </>
   )
 }
