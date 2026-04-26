@@ -25,10 +25,12 @@ describe('ActivityStore.addTask', () => {
   })
 
   it('user 없으면 null 반환 (R2-007)', () => {
-    const { result } = renderHook(() => useActivityStore(), { wrapper: ActivityStoreProvider as any })
-    let added: ReturnType<typeof result.current.addTask> | undefined
+    // 로그인하지 않은 상태에서 addTask 호출
+    const { result } = renderHook(useStoreWithAuth, { wrapper })
+    expect(result.current.auth.user).toBeNull()
+    let added: ReturnType<typeof result.current.store.addTask> | undefined
     act(() => {
-      added = result.current.addTask({
+      added = result.current.store.addTask({
         ownerUserId: 'unknown',
         date: '2026-04-25',
         category: 'NewDeal',
@@ -168,6 +170,74 @@ describe('ActivityStore.toggleTaskDone', () => {
     act(() => result.current.store.toggleTaskDone(task!.id))
     expect(result.current.store.activities.length).toBe(countAfterDone)
     expect(result.current.store.tasks.find((t) => t.id === task!.id)?.status).toBe('InProgress')
+  })
+})
+
+describe('ActivityStore.addBulkCarryOver', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    resetActivityStoreCounters()
+  })
+
+  it('어제 미완료 일괄 → 오늘로 이월 (TS3-003 원자성)', () => {
+    const { result } = renderHook(useStoreWithAuth, { wrapper })
+    act(() => result.current.auth.login('ben@oh.com', 'demo'))
+    const yesterday = '2026-12-26'
+    const ids: string[] = []
+    act(() => {
+      for (let i = 1; i <= 2; i++) {
+        const t = result.current.store.addTask({
+          ownerUserId: 'u-tm',
+          date: yesterday,
+          category: 'Internal',
+          title: `Yest ${i}`,
+          status: 'Planned',
+        })
+        if (t) ids.push(t.id)
+      }
+    })
+    let bulk: ReturnType<typeof result.current.store.addBulkCarryOver> | undefined
+    act(() => {
+      bulk = result.current.store.addBulkCarryOver(ids)
+    })
+    expect(bulk?.added).toBe(2)
+    expect(bulk?.skipped).toBe(0)
+  })
+
+  it('6개 한도 초과 시 일부만 added 나머지 skipped', () => {
+    const { result } = renderHook(useStoreWithAuth, { wrapper })
+    act(() => result.current.auth.login('ben@oh.com', 'demo'))
+    const today = new Date().toISOString().slice(0, 10)
+    const yesterday = '2026-12-25'
+    const yIds: string[] = []
+    act(() => {
+      // 오늘 5개 미리 + 어제 3개 → 일괄 시 6번째 1개만 들어가고 2개 skip
+      for (let i = 1; i <= 5; i++) {
+        result.current.store.addTask({
+          ownerUserId: 'u-tm',
+          date: today,
+          category: 'Internal',
+          title: `Today ${i}`,
+          status: 'Planned',
+        })
+      }
+      for (let i = 1; i <= 3; i++) {
+        const t = result.current.store.addTask({
+          ownerUserId: 'u-tm',
+          date: yesterday,
+          category: 'Internal',
+          title: `Yest ${i}`,
+          status: 'Planned',
+        })
+        if (t) yIds.push(t.id)
+      }
+    })
+    let bulk: ReturnType<typeof result.current.store.addBulkCarryOver> | undefined
+    act(() => {
+      bulk = result.current.store.addBulkCarryOver(yIds)
+    })
+    expect(bulk?.added).toBe(1)
+    expect(bulk?.skipped).toBe(2)
   })
 })
 
