@@ -1,10 +1,67 @@
-import { useEffect, useState } from 'react'
-import { ArrowUpRight, ArrowDownRight, Minus, Settings, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ArrowUpRight, ArrowDownRight, Minus, Settings, Loader2,
+  Calendar as CalendarIcon, ChevronDown,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatPercent } from '@/utils/kpiCalc'
 import { toast } from 'sonner'
 import KPISettingsModal from '@/components/common/KPISettingsModal'
 import { loadReport, AVAILABLE_WEEKS, LATEST_WEEK, type RealReport } from '@/services/reportData'
+import { useFilters } from '@/contexts/FilterContext'
+import { mockUsers } from '@/mocks/users'
+import { mockClients } from '@/mocks/clients'
+
+// oh-crm 패턴: 섹션 단위 Booking/Check-in/Check-out + Period 프리셋
+const DATE_TYPES = [
+  { key: 'booking', label: 'Booking Date' },
+  { key: 'checkin', label: 'Check-in' },
+  { key: 'checkout', label: 'Check-out' },
+] as const
+
+const PERIOD_PRESETS = [
+  { key: 'last_week', label: 'Last Week' },
+  { key: 'current_week', label: 'Current Week' },
+  { key: 'last_month', label: 'Last Month' },
+  { key: 'current_month', label: 'Current Month' },
+  { key: 'ytd', label: 'YTD' },
+  { key: 'custom', label: 'Custom' },
+] as const
+type PresetKey = (typeof PERIOD_PRESETS)[number]['key']
+
+function getPresetDates(preset: PresetKey, today = new Date()): { start: string; end: string } {
+  const f = (d: Date) => d.toISOString().split('T')[0]
+  switch (preset) {
+    case 'last_week': {
+      const dow = today.getDay()
+      const s = new Date(today); s.setDate(today.getDate() - dow - 6)
+      const e = new Date(s); e.setDate(s.getDate() + 6)
+      return { start: f(s), end: f(e) }
+    }
+    case 'current_week': {
+      const dow = today.getDay()
+      const s = new Date(today); s.setDate(today.getDate() - dow + 1)
+      const e = new Date(s); e.setDate(s.getDate() + 6)
+      return { start: f(s), end: f(e) }
+    }
+    case 'last_month': {
+      const s = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const e = new Date(today.getFullYear(), today.getMonth(), 0)
+      return { start: f(s), end: f(e) }
+    }
+    case 'current_month': {
+      const s = new Date(today.getFullYear(), today.getMonth(), 1)
+      const e = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      return { start: f(s), end: f(e) }
+    }
+    case 'ytd': {
+      const s = new Date(today.getFullYear(), 0, 1)
+      return { start: f(s), end: f(today) }
+    }
+    default:
+      return { start: f(today), end: f(today) }
+  }
+}
 
 function ChangeIndicator({ value, label }: { value: number | null; label: string }) {
   if (value === null) {
@@ -30,11 +87,28 @@ function ChangeIndicator({ value, label }: { value: number | null; label: string
 }
 
 export default function OverviewPage() {
+  const { filters } = useFilters()
   const [kpiSettingsOpen, setKpiSettingsOpen] = useState(false)
   const [week, setWeek] = useState<string>(LATEST_WEEK)
   const [report, setReport] = useState<RealReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Period 필터 (Overview 내부, oh-crm 패턴)
+  const [dateType, setDateType] = useState<(typeof DATE_TYPES)[number]['key']>('booking')
+  const [preset, setPreset] = useState<PresetKey>('last_week')
+  const presetDates = useMemo(() => getPresetDates(preset), [preset])
+  const [customStart, setCustomStart] = useState(presetDates.start)
+  const [customEnd, setCustomEnd] = useState(presetDates.end)
+  useEffect(() => {
+    if (preset !== 'custom') {
+      const d = getPresetDates(preset)
+      setCustomStart(d.start)
+      setCustomEnd(d.end)
+    }
+  }, [preset])
+  const periodStart = preset === 'custom' ? customStart : presetDates.start
+  const periodEnd = preset === 'custom' ? customEnd : presetDates.end
 
   useEffect(() => {
     setLoading(true)
@@ -44,6 +118,33 @@ export default function OverviewPage() {
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
   }, [week])
+
+  // 사이드바 필터 적용 — Tier / PIC / 선택채널 (early return 이전에 호출 필수)
+  const filteredChannels = useMemo(() => {
+    if (!report) return []
+    let list = report.channels
+    if (filters.selectedChannelId) {
+      const sel = mockClients.find((c) => c.id === filters.selectedChannelId)
+      if (sel) list = list.filter((c) => c.channel === sel.name)
+    }
+    if (filters.tier !== 'All') {
+      const allowed = new Set(
+        mockClients
+          .filter((c) => (c.autoTier ?? c.tier) === filters.tier)
+          .map((c) => c.name)
+      )
+      list = list.filter((c) => allowed.has(c.channel))
+    }
+    if (filters.pic !== 'All') {
+      const allowed = new Set(
+        mockClients
+          .filter((c) => (c.assignedManager ?? c.picUserId) === filters.pic)
+          .map((c) => c.name)
+      )
+      list = list.filter((c) => allowed.has(c.channel))
+    }
+    return list
+  }, [report, filters.tier, filters.pic, filters.selectedChannelId])
 
   if (loading || !report) {
     return (
@@ -64,12 +165,17 @@ export default function OverviewPage() {
   ]
 
   const dependency = report.ctrip
-  const top5Channels = report.channels.slice(0, 5)
-  const top5Total = report.channels.reduce((s, c) => s + c.ttv, 0)
+  const filteredTop5 = filteredChannels.slice(0, 5)
+  const filteredTotal = filteredChannels.reduce((s, c) => s + c.ttv, 0)
+  const sidebarFilterActive =
+    filters.tier !== 'All' || filters.pic !== 'All' || filters.selectedChannelId !== null
+  const picName = filters.pic !== 'All'
+    ? mockUsers.find((u) => u.id === filters.pic)?.name ?? filters.pic
+    : null
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header with week picker */}
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-lg font-semibold">주간 실적</h2>
@@ -82,6 +188,7 @@ export default function OverviewPage() {
             value={week}
             onChange={(e) => setWeek(e.target.value)}
             className="px-3 py-1.5 text-xs bg-background border border-border rounded-md"
+            aria-label="주간 리포트 선택"
           >
             {AVAILABLE_WEEKS.map((w) => (
               <option key={w} value={w}>{w}</option>
@@ -96,6 +203,83 @@ export default function OverviewPage() {
           </button>
         </div>
       </div>
+
+      {/* Period 필터 바 (oh-crm 패턴: 섹션별 Booking/Check-in/Check-out + 프리셋) */}
+      <div className="bg-card border border-border rounded-lg px-3 py-2 flex items-center gap-2 flex-wrap text-xs">
+        <span className="text-muted-foreground font-medium">Period:</span>
+        <div className="relative inline-flex items-center">
+          <select
+            value={dateType}
+            onChange={(e) => setDateType(e.target.value as typeof dateType)}
+            className="appearance-none pl-2 pr-6 py-1 border rounded bg-background hover:bg-accent cursor-pointer"
+            aria-label="날짜 타입"
+          >
+            {DATE_TYPES.map((d) => (
+              <option key={d.key} value={d.key}>{d.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="w-3 h-3 absolute right-1.5 pointer-events-none text-muted-foreground" />
+        </div>
+        <div className="relative inline-flex items-center">
+          <select
+            value={preset}
+            onChange={(e) => setPreset(e.target.value as PresetKey)}
+            className="appearance-none pl-2 pr-6 py-1 border rounded bg-background hover:bg-accent cursor-pointer"
+            aria-label="기간 프리셋"
+          >
+            {PERIOD_PRESETS.map((p) => (
+              <option key={p.key} value={p.key}>{p.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="w-3 h-3 absolute right-1.5 pointer-events-none text-muted-foreground" />
+        </div>
+        <div className="flex items-center gap-1">
+          <CalendarIcon className="w-3 h-3 text-muted-foreground" />
+          <input
+            type="date"
+            value={periodStart}
+            onChange={(e) => setCustomStart(e.target.value)}
+            disabled={preset !== 'custom'}
+            className="h-6 text-xs border rounded px-1 bg-background w-[120px] disabled:opacity-60"
+            aria-label="시작일"
+          />
+          <span className="text-muted-foreground">~</span>
+          <input
+            type="date"
+            value={periodEnd}
+            onChange={(e) => setCustomEnd(e.target.value)}
+            disabled={preset !== 'custom'}
+            className="h-6 text-xs border rounded px-1 bg-background w-[120px] disabled:opacity-60"
+            aria-label="종료일"
+          />
+        </div>
+        <span className="text-[10px] text-muted-foreground ml-auto">
+          ※ 실데이터 주간 스냅샷이라 실제 통계는 위 주간 선택을 따릅니다.
+        </span>
+      </div>
+
+      {/* 사이드바 활성 필터 표시 */}
+      {sidebarFilterActive && (
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <span className="text-muted-foreground">사이드바 필터:</span>
+          {filters.tier !== 'All' && (
+            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              Tier {filters.tier}
+            </span>
+          )}
+          {picName && (
+            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              PIC {picName}
+            </span>
+          )}
+          {filters.selectedChannelId && (
+            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              채널 {mockClients.find((c) => c.id === filters.selectedChannelId)?.name}
+            </span>
+          )}
+          <span className="text-muted-foreground">→ {filteredChannels.length}개 채널 매칭</span>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <section>
@@ -145,12 +329,19 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <section className="lg:col-span-2 bg-card border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">Channel Top {top5Channels.length}</h3>
-            <span className="text-xs text-muted-foreground">실데이터 · WoW 표시</span>
+            <h3 className="text-sm font-semibold">Channel Top {filteredTop5.length}</h3>
+            <span className="text-xs text-muted-foreground">
+              {sidebarFilterActive ? '사이드바 필터 적용 · WoW' : '실데이터 · WoW'}
+            </span>
           </div>
+          {filteredTop5.length === 0 ? (
+            <div className="text-center py-8 text-xs text-muted-foreground">
+              사이드바 필터에 매칭되는 채널이 없습니다
+            </div>
+          ) : (
           <div className="space-y-2">
-            {top5Channels.map((c, i) => {
-              const pct = (c.ttv / top5Total) * 100
+            {filteredTop5.map((c, i) => {
+              const pct = filteredTotal > 0 ? (c.ttv / filteredTotal) * 100 : 0
               return (
                 <div key={c.channel} className="flex items-center gap-3 py-2 border-b border-border/50 last:border-0">
                   <span className="w-5 text-xs font-mono text-muted-foreground">#{i + 1}</span>
@@ -176,6 +367,7 @@ export default function OverviewPage() {
               )
             })}
           </div>
+          )}
         </section>
 
         <section className="bg-card border border-border rounded-lg p-4">
