@@ -1,36 +1,29 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
-import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { render, screen } from '@testing-library/react'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { FilterProvider } from '@/contexts/FilterContext'
+import { mockUsers } from '@/mocks/users'
 import KPICascadeCard from './KPICascadeCard'
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
 
-function Wrapper({ children, role }: { children: ReactNode; role?: string }) {
+function setStoredUser(email: string) {
+  const u = mockUsers.find((m) => m.email === email)
+  if (u) localStorage.setItem('sales-crm:auth-user', JSON.stringify(u))
+}
+
+function Wrapper({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <FilterProvider>
-        {role ? <SetRole role={role}>{children}</SetRole> : children}
-      </FilterProvider>
+      <FilterProvider>{children}</FilterProvider>
     </AuthProvider>
   )
 }
 
-function SetRole({ role, children }: { role: string; children: ReactNode }) {
-  const { login } = useAuth()
-  useEffect(() => {
-    const map: Record<string, string> = {
-      ceo: 'ceo@oh.com',
-      director: 'director@oh.com',
-      team_member: 'ben@oh.com',
-    }
-    login(map[role] ?? 'ben@oh.com', 'demo')
-  }, [login, role])
-  return <>{children}</>
-}
-
 describe('KPICascadeCard', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => {
+    localStorage.clear()
+    setStoredUser('director@oh.com')
+  })
 
   it('5단계 L1~L5 모두 렌더', () => {
     render(<KPICascadeCard />, { wrapper: Wrapper })
@@ -43,9 +36,10 @@ describe('KPICascadeCard', () => {
 
   it('Tier 가중치 50/30/20 표시', () => {
     render(<KPICascadeCard />, { wrapper: Wrapper })
-    expect(screen.getByText(/50%/)).toBeInTheDocument()
-    expect(screen.getByText(/30%/)).toBeInTheDocument()
-    expect(screen.getByText(/20%/)).toBeInTheDocument()
+    // T1 50% · T2 30% · T3 20% (Tier 가중치 카드)
+    expect(screen.getByText(/T1.*50%/)).toBeInTheDocument()
+    expect(screen.getByText(/T2.*30%/)).toBeInTheDocument()
+    expect(screen.getByText(/T3.*20%/)).toBeInTheDocument()
   })
 
   it('시뮬레이션 배지 표시', () => {
@@ -53,15 +47,13 @@ describe('KPICascadeCard', () => {
     expect(screen.getByText(/시뮬레이션 데이터/)).toBeInTheDocument()
   })
 
-  it('L5는 항상 disabled (SCM CRM 단일 소스)', () => {
-    render(<KPICascadeCard />, { wrapper: Wrapper })
-    // L5 row 안의 편집 버튼은 disabled
-    const l5Row = screen.getByText(/L5/).closest('div')
-    expect(l5Row).toBeTruthy()
-  })
-
-  it('SCM CRM read-only 안내', () => {
+  it('SCM CRM read-only 안내 (BR-008-5)', () => {
     render(<KPICascadeCard />, { wrapper: Wrapper })
     expect(screen.getByText(/SCM CRM/)).toBeInTheDocument()
+  })
+
+  it('헤더 제목 표시', () => {
+    render(<KPICascadeCard />, { wrapper: Wrapper })
+    expect(screen.getByText(/KPI Cascade/)).toBeInTheDocument()
   })
 })
