@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Search, Plus, FileText, CheckCircle2, Clock, TrendingUp, Star } from 'lucide-react'
+import { Search, Plus, FileText, CheckCircle2, Clock, TrendingUp, Star, Download } from 'lucide-react'
+import { exportToCsv } from '@/utils/csvExport'
 import { cn } from '@/lib/utils'
 import { mockContractChanges, contractChangeStats } from '@/mocks/contracts'
 import { mockClients } from '@/mocks/clients'
@@ -123,6 +124,30 @@ export default function ContractsPage() {
             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
           ))}
         </select>
+        <button
+          onClick={() => {
+            exportToCsv('contracts', filtered, [
+              { key: 'id', header: 'ID' },
+              { key: (c) => mockClients.find((m) => m.id === c.channelId)?.name ?? c.channelId, header: 'Channel' },
+              { key: 'type', header: 'Type' },
+              { key: 'oldValue', header: 'OldValue' },
+              { key: 'newValue', header: 'NewValue' },
+              { key: 'contractDate', header: 'ContractDate' },
+              { key: 'followUpDate', header: 'FollowUp' },
+              { key: 'completedDate', header: 'Completed' },
+              { key: 'citiBankRef', header: 'CitiBank' },
+              { key: 'status', header: 'Status' },
+              { key: (c) => mockUsers.find((u) => u.id === c.ownerUserId)?.name ?? c.ownerUserId, header: 'Owner' },
+              { key: 'notes', header: 'Notes' },
+              { key: 'rejectionReason', header: 'RejectionReason' },
+            ])
+            toast.success(`${filtered.length}건 CSV 내보내기 완료`)
+          }}
+          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm hover:bg-accent"
+          title="CSV로 내보내기"
+        >
+          <Download className="w-4 h-4" /> Export
+        </button>
         <button
           onClick={() => toast.info('계약 추가 모달 (Phase 2)')}
           className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"

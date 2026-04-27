@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Plus, Sparkles, Clock, CheckCircle2, PauseCircle, Eye } from 'lucide-react'
+import { Plus, Sparkles, Clock, CheckCircle2, PauseCircle, Eye, Download } from 'lucide-react'
+import { exportToCsv } from '@/utils/csvExport'
 import { cn } from '@/lib/utils'
 import { mockDecisions, decisionStats } from '@/mocks/decisions'
 import { mockUsers } from '@/mocks/users'
@@ -98,10 +99,32 @@ export default function DecisionsPage() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        <button
+          onClick={() => {
+            exportToCsv('decisions', filtered, [
+              { key: 'id', header: 'ID' },
+              { key: 'title', header: 'Title' },
+              { key: 'category', header: 'Category' },
+              { key: 'status', header: 'Status' },
+              { key: 'decisionByRole', header: 'DecisionByRole' },
+              { key: (d) => mockUsers.find((u) => u.id === d.requestedByUserId)?.name ?? d.requestedByUserId, header: 'RequestedBy' },
+              { key: 'createdAt', header: 'CreatedAt' },
+              { key: 'decidedAt', header: 'DecidedAt' },
+              { key: 'decision', header: 'Decision' },
+              { key: 'decisionNote', header: 'DecisionNote' },
+              { key: (d) => d.options.join(' | '), header: 'Options' },
+            ])
+            toast.success(`${filtered.length}건 CSV 내보내기 완료`)
+          }}
+          className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm hover:bg-accent"
+          title="CSV로 내보내기"
+        >
+          <Download className="w-4 h-4" /> Export
+        </button>
         {isManagerOrAbove && (
           <button
             onClick={() => toast.info('의사결정 요청 모달 (Phase 2)')}
-            className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
           >
             <Plus className="w-4 h-4" /> 요청 추가
           </button>

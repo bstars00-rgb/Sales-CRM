@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react'
 import {
   Briefcase, TrendingUp, Target, AlertTriangle, CheckCircle2, XCircle,
-  ArrowUpRight, Filter,
+  ArrowUpRight, Filter, LayoutGrid, Table2, Download, GripVertical,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { mockOpportunities, categorizeForecast, forecastTotal, winLossStats } from '@/mocks/opportunities'
 import { mockClients } from '@/mocks/clients'
 import { mockUsers } from '@/mocks/users'
 import { useFilters } from '@/contexts/FilterContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { formatCurrency } from '@/utils/kpiCalc'
-import type { OpportunityStage, OpportunityType, ForecastCategory } from '@/types'
+import { exportToCsv } from '@/utils/csvExport'
+import type { Opportunity, OpportunityStage, OpportunityType, ForecastCategory } from '@/types'
 import { toast } from 'sonner'
 
 const STAGE_DEFS: { stage: OpportunityStage; label: string; color: string }[] = [
@@ -38,12 +40,68 @@ const FORECAST_CATEGORIES: { key: ForecastCategory; label: string; color: string
 
 export default function OpportunitiesPage() {
   const { filters } = useFilters()
+  const { user } = useAuth()
   const [stageFilter, setStageFilter] = useState<OpportunityStage | 'All'>('All')
   const [typeFilter, setTypeFilter] = useState<OpportunityType | 'All'>('All')
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(mockOpportunities)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverStage, setDragOverStage] = useState<OpportunityStage | null>(null)
+
+  const canMoveStage = user?.role === 'director' || user?.role === 'regional_director' || user?.role === 'c_level' || user?.role === 'ceo'
+
+  const handleDrop = (toStage: OpportunityStage) => {
+    if (!draggingId) return
+    const op = opportunities.find((o) => o.id === draggingId)
+    if (!op || op.stage === toStage) {
+      setDraggingId(null)
+      setDragOverStage(null)
+      return
+    }
+    // Won/Lost 전이는 Director 이상만 (BR-026-9)
+    if ((toStage === 'Won' || toStage === 'Lost') && !canMoveStage) {
+      toast.error(`${toStage} 전이는 Director 이상만 가능합니다 (BR-026-9 / AC-026-3b)`)
+      setDraggingId(null)
+      setDragOverStage(null)
+      return
+    }
+    // probability 자동 갱신 (BR-026-8)
+    const probMap: Record<OpportunityStage, number> = {
+      Contact: 10, NDA: 20, InDev: 40, Testing: 70, Won: 100, Lost: 0,
+    }
+    setOpportunities((prev) =>
+      prev.map((o) =>
+        o.id === draggingId
+          ? { ...o, stage: toStage, probability: probMap[toStage], updatedAt: new Date().toISOString() }
+          : o
+      )
+    )
+    toast.success(`${op.name} → ${toStage} (probability ${probMap[toStage]}%)`)
+    setDraggingId(null)
+    setDragOverStage(null)
+  }
+
+  const handleExport = () => {
+    exportToCsv('opportunities', filtered, [
+      { key: 'id', header: 'ID' },
+      { key: (o) => mockClients.find((c) => c.id === o.channelId)?.name ?? o.channelId, header: 'Channel' },
+      { key: 'name', header: 'Opportunity' },
+      { key: 'type', header: 'Type' },
+      { key: 'amount', header: 'Amount' },
+      { key: 'currency', header: 'Currency' },
+      { key: 'probability', header: 'Probability(%)' },
+      { key: 'stage', header: 'Stage' },
+      { key: (o) => mockUsers.find((u) => u.id === o.ownerUserId)?.name ?? o.ownerUserId, header: 'Owner' },
+      { key: 'closeDate', header: 'CloseDate' },
+      { key: (o) => categorizeForecast(o.probability), header: 'ForecastCategory' },
+      { key: 'lostReason', header: 'LostReason' },
+    ])
+    toast.success(`${filtered.length}건 CSV 내보내기 완료`)
+  }
 
   // 사이드바 + 페이지 필터 적용
   const filtered = useMemo(() => {
-    return mockOpportunities.filter((o) => {
+    return opportunities.filter((o) => {
       if (stageFilter !== 'All' && o.stage !== stageFilter) return false
       if (typeFilter !== 'All' && o.type !== typeFilter) return false
       if (filters.selectedChannelId && o.channelId !== filters.selectedChannelId) return false
@@ -54,7 +112,7 @@ export default function OpportunitiesPage() {
       if (filters.pic !== 'All' && o.ownerUserId !== filters.pic) return false
       return true
     })
-  }, [stageFilter, typeFilter, filters.tier, filters.pic, filters.selectedChannelId])
+  }, [opportunities, stageFilter, typeFilter, filters.tier, filters.pic, filters.selectedChannelId])
 
   // Funnel 카운트 (Open만, Won/Lost 제외)
   const funnelCounts = useMemo(() => {
@@ -99,12 +157,44 @@ export default function OpportunitiesPage() {
             B2B 거래 추적 — Channel당 다건 동시 거래, Pipeline Stage Opportunity-level (FR-026/027/028)
           </p>
         </div>
-        <button
-          onClick={() => toast.info('Opportunity 신규 생성 모달 (Phase 2)')}
-          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
-        >
-          <ArrowUpRight className="w-4 h-4" /> Opportunity 추가
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="inline-flex border border-border rounded-md overflow-hidden">
+            <button
+              onClick={() => setViewMode('table')}
+              className={cn(
+                'inline-flex items-center gap-1 px-3 h-9 text-xs font-medium transition-colors',
+                viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'
+              )}
+              aria-label="Table view"
+            >
+              <Table2 className="w-3.5 h-3.5" /> Table
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={cn(
+                'inline-flex items-center gap-1 px-3 h-9 text-xs font-medium transition-colors border-l border-border',
+                viewMode === 'kanban' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'
+              )}
+              aria-label="Kanban view"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Kanban
+            </button>
+          </div>
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border text-sm hover:bg-accent"
+            title="CSV로 내보내기"
+          >
+            <Download className="w-4 h-4" /> Export
+          </button>
+          <button
+            onClick={() => toast.info('Opportunity 신규 생성 모달 (Phase 2)')}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
+          >
+            <ArrowUpRight className="w-4 h-4" /> Opportunity 추가
+          </button>
+        </div>
       </div>
 
       {/* Forecast Categories (FR-028 Bottom-up) */}
@@ -248,7 +338,8 @@ export default function OpportunitiesPage() {
         </span>
       </div>
 
-      {/* Table */}
+      {/* Table view */}
+      {viewMode === 'table' && (
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -324,6 +415,101 @@ export default function OpportunitiesPage() {
           </table>
         </div>
       </div>
+      )}
+
+      {/* Kanban view (FR-026 Drag-drop, Option C) */}
+      {viewMode === 'kanban' && (
+        <div className="bg-card border border-border rounded-lg p-3">
+          <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 min-h-[400px]">
+            {STAGE_DEFS.map((stageDef) => {
+              const stageOps = filtered.filter((o) => o.stage === stageDef.stage)
+              const stageAmount = stageOps.reduce((s, o) => s + o.amount, 0)
+              const isDragOver = dragOverStage === stageDef.stage
+              return (
+                <div
+                  key={stageDef.stage}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverStage(stageDef.stage) }}
+                  onDragLeave={() => setDragOverStage((curr) => curr === stageDef.stage ? null : curr)}
+                  onDrop={() => handleDrop(stageDef.stage)}
+                  className={cn(
+                    'rounded-md border-2 border-dashed p-2 transition-all',
+                    isDragOver
+                      ? 'border-primary bg-primary/5 scale-[1.02]'
+                      : 'border-border bg-muted/20'
+                  )}
+                >
+                  {/* Stage Header */}
+                  <div className={cn('rounded px-2 py-1.5 mb-2 border', stageDef.color)}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold">{stageDef.label}</span>
+                      <span className="text-[10px] tabular-nums">{stageOps.length}</span>
+                    </div>
+                    <p className="text-[9px] mt-0.5 tabular-nums opacity-80">
+                      {formatCurrency(stageAmount)}
+                    </p>
+                  </div>
+                  {/* Cards */}
+                  <ul className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+                    {stageOps.length === 0 ? (
+                      <li className="text-[10px] text-muted-foreground text-center py-3">
+                        {isDragOver ? '여기에 놓기' : '비어 있음'}
+                      </li>
+                    ) : (
+                      stageOps.map((o) => {
+                        const ch = mockClients.find((c) => c.id === o.channelId)
+                        const owner = mockUsers.find((u) => u.id === o.ownerUserId)
+                        const isDragging = draggingId === o.id
+                        return (
+                          <li
+                            key={o.id}
+                            draggable
+                            onDragStart={() => setDraggingId(o.id)}
+                            onDragEnd={() => { setDraggingId(null); setDragOverStage(null) }}
+                            className={cn(
+                              'bg-background border rounded p-2 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-primary/40 transition-all',
+                              isDragging && 'opacity-40 scale-95'
+                            )}
+                          >
+                            <div className="flex items-start gap-1">
+                              <GripVertical className="w-3 h-3 text-muted-foreground/50 shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-medium leading-tight">{o.name}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                  {ch?.name ?? o.channelId}
+                                </p>
+                                <div className="flex items-baseline justify-between mt-1 gap-1">
+                                  <span className="text-[10px] font-semibold tabular-nums">
+                                    {formatCurrency(o.amount)}
+                                  </span>
+                                  <span className="text-[9px] text-muted-foreground tabular-nums">
+                                    {o.probability}%
+                                  </span>
+                                </div>
+                                <p className="text-[9px] text-muted-foreground/70 mt-0.5 truncate">
+                                  {owner?.name} · {o.closeDate.slice(5)}
+                                </p>
+                                {o.lostReason && (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] bg-red-500/10 text-red-600 mt-1">
+                                    <AlertTriangle className="w-2 h-2" />
+                                    {o.lostReason}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })
+                    )}
+                  </ul>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-3">
+            ※ 드래그하여 Stage 이동. Won/Lost 전이는 Director 이상만 가능 (BR-026-9). Probability는 Stage 기본값 자동 적용 (BR-026-8).
+          </p>
+        </div>
+      )}
 
       <p className="text-[10px] text-muted-foreground">
         ※ Round 6 격상 (2026-04-26): Opportunity 엔티티 신설. Channel 1:N Opportunity, Pipeline Stage = Opportunity-level.

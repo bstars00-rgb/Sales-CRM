@@ -27,7 +27,7 @@ const MAIN_TABS: MainTab[] = [
     to: '/performance',
     label: 'Performance',
     icon: BarChart3,
-    matchPaths: ['/performance', '/trends'],
+    matchPaths: ['/performance', '/trends', '/reports'],
   },
   { to: '/weekly-brief', label: 'Weekly Brief', icon: FileText },
   {

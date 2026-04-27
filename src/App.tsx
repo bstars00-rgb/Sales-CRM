@@ -22,6 +22,7 @@ import ContractsPage from '@/pages/ContractsPage'
 import DecisionsPage from '@/pages/DecisionsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import OpportunitiesPage from '@/pages/OpportunitiesPage'
+import ReportsPage from '@/pages/ReportsPage'
 import OnboardingModal from '@/components/common/OnboardingModal'
 import { useState, useEffect } from 'react'
 
@@ -66,6 +67,7 @@ export default function App() {
                   <Route path="/" element={<OverviewPage />} />
                   <Route path="/destination" element={<DestinationPage />} />
                   <Route path="/performance" element={<PerformancePage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/hotels" element={<HotelsPage />} />
                   <Route path="/trends" element={<TrendsPage />} />
                   <Route path="/live-map" element={<LiveMapPage />} />

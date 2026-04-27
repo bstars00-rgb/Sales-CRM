@@ -30,11 +30,12 @@ const SUB_GROUPS: SubGroup[] = [
     ],
   },
   {
-    parents: ['/performance', '/trends'],
+    parents: ['/performance', '/trends', '/reports'],
     groupLabel: 'Performance',
     tabs: [
       { to: '/performance', label: 'Monthly / Cascade', icon: BarChart3 },
       { to: '/trends', label: 'Trends (Market)', icon: TrendingUp },
+      { to: '/reports', label: 'Custom Reports', icon: BarChart3 },
     ],
   },
   {
