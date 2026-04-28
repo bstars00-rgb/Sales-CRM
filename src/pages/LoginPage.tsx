@@ -125,42 +125,45 @@ export default function LoginPage() {
         </div>
       </header>
 
-      {/* Body — 좌측 hero / 우측 form */}
-      <main className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-2 items-center px-4 sm:px-8 lg:px-16 gap-12 py-8">
+      {/* Body — 좌측 hero (3) / 우측 form (2) — 시원시원하게 */}
+      <main className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-[3fr_2fr] xl:grid-cols-[5fr_3fr] items-center px-6 sm:px-12 lg:px-20 xl:px-28 gap-12 lg:gap-16 xl:gap-24 py-10">
         {/* 좌측 Hero */}
-        <section className="hidden lg:flex flex-col gap-6 max-w-xl">
-          <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full border border-indigo-400/30 bg-indigo-500/10 backdrop-blur-sm text-xs text-indigo-200">
-            <Sparkles className="w-3.5 h-3.5" />
+        <section className="hidden lg:flex flex-col gap-8 max-w-3xl">
+          <div className="inline-flex items-center gap-2 self-start px-4 py-1.5 rounded-full border border-indigo-400/30 bg-indigo-500/10 backdrop-blur-sm text-sm text-indigo-200">
+            <Sparkles className="w-4 h-4" />
             B2B Vertical SaaS · Round 9 (Option C)
           </div>
 
-          <h2 className="text-5xl font-bold tracking-tight leading-tight">
-            <span className="bg-gradient-to-r from-indigo-300 via-cyan-300 to-emerald-300 bg-clip-text text-transparent">
-              데이터로 움직이는<br />
-              채널 영업 플랫폼
+          <h2 className="text-7xl xl:text-8xl 2xl:text-9xl font-bold tracking-tight leading-[1.05]">
+            <span className="bg-gradient-to-r from-indigo-300 via-cyan-300 to-emerald-300 bg-clip-text text-transparent drop-shadow-lg">
+              데이터로<br />움직이는<br />
+              <span className="bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-300 bg-clip-text text-transparent">
+                채널 영업 플랫폼
+              </span>
             </span>
           </h2>
 
-          <p className="text-base text-foreground/80 leading-relaxed">
+          <p className="text-xl xl:text-2xl text-foreground/85 leading-relaxed font-light max-w-2xl">
             30+ 글로벌 OTA / Wholesaler / TMC 채널을 한곳에서.<br />
-            <span className="text-foreground/60">
-              실시간 KPI 캐스케이드 · Opportunity 파이프라인 · Win/Loss 분석 · 11타입 자동 알림
+            <span className="text-foreground/60 text-lg xl:text-xl">
+              실시간 KPI 캐스케이드 · Opportunity 파이프라인<br />
+              Win/Loss 분석 · 11타입 자동 알림
             </span>
           </p>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-3 gap-3 mt-2">
+          <div className="grid grid-cols-3 gap-4 mt-2">
             <Stat icon={Globe} value="30+" label="글로벌 채널" />
             <Stat icon={Network} value="5단계" label="KPI 캐스케이드" />
             <Stat icon={BarChart3} value="6 Stage" label="Opportunity Funnel" />
           </div>
 
           {/* Tech Pills */}
-          <div className="flex flex-wrap gap-1.5 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2">
             {['React 19', 'TypeScript', 'Vite 8', 'TailwindCSS 4', 'Recharts', '7-rank RBAC', 'Real-time KPI'].map((tech) => (
               <span
                 key={tech}
-                className="px-2 py-0.5 text-[10px] rounded-full border border-foreground/20 bg-background/30 backdrop-blur-sm text-foreground/70"
+                className="px-3 py-1 text-xs rounded-full border border-foreground/20 bg-background/30 backdrop-blur-sm text-foreground/70"
               >
                 {tech}
               </span>
@@ -168,11 +171,11 @@ export default function LoginPage() {
           </div>
         </section>
 
-        {/* 우측 Form */}
+        {/* 우측 Form — 더 큼직하게 */}
         <section className="flex justify-center lg:justify-end">
-          <div className="w-full max-w-[440px] bg-card/85 backdrop-blur-xl border border-border/60 rounded-2xl shadow-2xl shadow-indigo-500/10 p-8">
-            <h2 className="text-xl font-semibold mb-1">로그인</h2>
-            <p className="text-sm text-muted-foreground mb-6">
+          <div className="w-full max-w-[520px] bg-card/85 backdrop-blur-xl border border-border/60 rounded-3xl shadow-2xl shadow-indigo-500/20 p-10">
+            <h2 className="text-2xl font-bold mb-1.5">로그인</h2>
+            <p className="text-base text-muted-foreground mb-7">
               OMH 계정으로 Channel Sales CRM에 접속하세요.
             </p>
 
@@ -216,7 +219,7 @@ export default function LoginPage() {
                   required
                   autoComplete="email"
                   aria-invalid={!!error}
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2.5 rounded-lg text-base bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
@@ -230,7 +233,7 @@ export default function LoginPage() {
                   required
                   autoComplete="current-password"
                   aria-invalid={!!error}
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-4 py-2.5 rounded-lg text-base bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               {error && (
@@ -241,9 +244,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-500 text-white font-medium text-sm hover:from-indigo-700 hover:to-cyan-600 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/30"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-500 text-white font-semibold text-base hover:from-indigo-700 hover:to-cyan-600 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/30"
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-5 h-5" />
                 {submitting ? '로그인 중...' : '로그인'}
               </button>
             </form>
@@ -290,12 +293,12 @@ export default function LoginPage() {
 
 function Stat({ icon: Icon, value, label }: { icon: typeof Globe; value: string; label: string }) {
   return (
-    <div className="bg-background/30 backdrop-blur-sm border border-border/60 rounded-lg p-3">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Icon className="w-3.5 h-3.5 text-cyan-400" />
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
+    <div className="bg-background/30 backdrop-blur-sm border border-border/60 rounded-xl p-5">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className="w-4 h-4 text-cyan-400" />
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">{label}</span>
       </div>
-      <p className="text-2xl font-bold bg-gradient-to-r from-indigo-300 to-cyan-300 bg-clip-text text-transparent">
+      <p className="text-4xl xl:text-5xl font-bold bg-gradient-to-r from-indigo-300 to-cyan-300 bg-clip-text text-transparent">
         {value}
       </p>
     </div>
