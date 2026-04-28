@@ -141,7 +141,12 @@ export default function DailyBriefingPage() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-semibold">Daily Briefing</h2>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              Critical 6
+              <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-primary border border-primary/20">
+                PRD v1 (docs/specs/critical-6/)
+              </span>
+            </h2>
             <span
               className={cn(
                 'text-[10px] font-semibold px-2 py-0.5 rounded',

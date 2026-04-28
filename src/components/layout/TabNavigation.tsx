@@ -14,7 +14,7 @@ interface MainTab {
 }
 
 const MAIN_TABS: MainTab[] = [
-  { to: '/briefing', label: 'Daily Briefing', icon: Sun },
+  { to: '/briefing', label: 'Critical 6', icon: Sun },
   { to: '/', label: 'Overview', icon: LayoutDashboard },
   {
     to: '/crm',
