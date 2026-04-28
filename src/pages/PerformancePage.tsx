@@ -17,7 +17,7 @@ export default function PerformancePage() {
     : null
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* KPI Cascade L1~L5 (FR-008 placeholder) */}
       <KPICascadeCard />
 

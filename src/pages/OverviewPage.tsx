@@ -204,7 +204,7 @@ export default function OverviewPage() {
 
   if (loading || !report) {
     return (
-      <div className="max-w-7xl mx-auto py-20 flex flex-col items-center gap-3 text-muted-foreground">
+      <div className="w-full py-20 flex flex-col items-center gap-3 text-muted-foreground">
         <Loader2 className="w-8 h-8 animate-spin" />
         <span className="text-sm">Overview 데이터 로딩 중... ({week})</span>
       </div>
@@ -226,7 +226,7 @@ export default function OverviewPage() {
   const top5Total = top5Channels.reduce((s, c) => s + c.ttv, 0)
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
+    <div className="w-full space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

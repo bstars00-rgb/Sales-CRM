@@ -92,7 +92,7 @@ export default function WeeklyBriefPage() {
 
   if (loading || !report) {
     return (
-      <div className="max-w-6xl mx-auto py-20 flex flex-col items-center gap-3 text-muted-foreground">
+      <div className="w-full py-20 flex flex-col items-center gap-3 text-muted-foreground">
         <Loader2 className="w-8 h-8 animate-spin" />
         <span className="text-sm">Weekly Brief 로딩 중...</span>
       </div>
@@ -175,7 +175,7 @@ export default function WeeklyBriefPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
+    <div className="w-full space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

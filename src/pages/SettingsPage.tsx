@@ -50,7 +50,7 @@ export default function SettingsPage() {
   const accessible = activeDef ? gateOpen(activeDef.gate, role) : false
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <SettingsIcon className="w-5 h-5 text-primary" />
