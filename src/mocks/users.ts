@@ -106,4 +106,14 @@ export const mockUsers: User[] = [
     themePreference: 'system',
     onboardedAt: '2026-04-01T09:00:00Z',
   },
+  // 시스템 관리자 (Round 10 추가) — ceo 권한 기반, 전체 접근 + 사용자/통합 관리
+  {
+    id: 'u-admin',
+    name: '시스템 관리자',
+    email: 'admin@oh.com',
+    role: 'ceo',
+    language: 'ko',
+    themePreference: 'system',
+    onboardedAt: '2026-04-01T09:00:00Z',
+  },
 ]
