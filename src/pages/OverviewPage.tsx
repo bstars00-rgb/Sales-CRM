@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { formatCurrency, formatPercent } from '@/utils/kpiCalc'
 import { toast } from 'sonner'
 import KPISettingsModal from '@/components/common/KPISettingsModal'
-import { loadReport, AVAILABLE_WEEKS, LATEST_WEEK, type RealReport } from '@/services/reportData'
+import { loadReport, LATEST_WEEK, type RealReport } from '@/services/reportData'
 import { useFilters, SALES_COUNTRIES } from '@/contexts/FilterContext'
 import { mockUsers, SALES_PICS } from '@/mocks/users'
 import { mockClients } from '@/mocks/clients'
@@ -112,13 +112,13 @@ function ChangeIndicator({ value, label }: { value: number | null; label: string
 export default function OverviewPage() {
   const { filters } = useFilters()
   const [kpiSettingsOpen, setKpiSettingsOpen] = useState(false)
-  const [week, setWeek] = useState<string>(LATEST_WEEK)
+  // 데이터 로드는 최신 REPORT (Phase 1.5에서 DB 동기화 시 기간별 fetch)
   const [report, setReport] = useState<RealReport | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Period 필터 (Overview 내부)
+  // Period 필터 (Overview 내부) — 디폴트: Booking Date 기준 어제 예약건
   const [dateType, setDateType] = useState<(typeof DATE_TYPES)[number]['key']>('booking')
-  const [preset, setPreset] = useState<PresetKey>('current_month')
+  const [preset, setPreset] = useState<PresetKey>('day_before')
   const presetDates = useMemo(() => getPresetDates(preset), [preset])
   const [customStart, setCustomStart] = useState(presetDates.start)
   const [customEnd, setCustomEnd] = useState(presetDates.end)
@@ -134,8 +134,8 @@ export default function OverviewPage() {
 
   useEffect(() => {
     setLoading(true)
-    loadReport(week).then(setReport).finally(() => setLoading(false))
-  }, [week])
+    loadReport(LATEST_WEEK).then(setReport).finally(() => setLoading(false))
+  }, [])
 
   // 사이드바 필터 적용 — 채널 후보군
   const filteredChannelIds = useMemo(() => {
@@ -206,7 +206,7 @@ export default function OverviewPage() {
     return (
       <div className="w-full py-20 flex flex-col items-center gap-3 text-muted-foreground">
         <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="text-sm">Overview 데이터 로딩 중... ({week})</span>
+        <span className="text-sm">Overview 데이터 로딩 중...</span>
       </div>
     )
   }
@@ -307,15 +307,10 @@ export default function OverviewPage() {
           />
         </div>
 
-        {/* Week selector (실데이터 fallback) */}
-        <select
-          value={week}
-          onChange={(e) => setWeek(e.target.value)}
-          className="ml-auto px-3 h-8 text-xs bg-background border border-border rounded-md"
-          title="REPORT 주차 데이터 (DB 동기화 전 임시)"
-        >
-          {AVAILABLE_WEEKS.map((w) => <option key={w} value={w}>{w} 데이터</option>)}
-        </select>
+        {/* 적용 기간 표시 */}
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          적용 기간 <span className="font-mono text-foreground/80">{periodStart} ~ {periodEnd}</span>
+        </span>
       </div>
 
       {/* 사이드바 활성 필터 표시 */}
@@ -345,7 +340,7 @@ export default function OverviewPage() {
       <section>
         <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
           <Activity className="w-4 h-4 text-primary" />
-          핵심 KPI <span className="text-xs text-muted-foreground font-normal">(주간 실적, REPORT 기준 — DB 동기화 전 임시)</span>
+          핵심 KPI <span className="text-xs text-muted-foreground font-normal">({DATE_TYPES.find((d) => d.key === dateType)?.label} · {PERIOD_PRESETS.find((p) => p.key === preset)?.label})</span>
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
