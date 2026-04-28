@@ -44,10 +44,6 @@ export default function ContractsPage() {
       if (typeFilter !== 'All' && c.type !== typeFilter) return false
       if (statusFilter !== 'All' && c.status !== statusFilter) return false
       if (filters.selectedChannelId && c.channelId !== filters.selectedChannelId) return false
-      if (filters.tier !== 'All') {
-        const ch = mockClients.find((m) => m.id === c.channelId)
-        if ((ch?.autoTier ?? ch?.tier) !== filters.tier) return false
-      }
       if (filters.pic !== 'All' && c.ownerUserId !== filters.pic) return false
       if (q) {
         const ch = mockClients.find((m) => m.id === c.channelId)
@@ -59,7 +55,7 @@ export default function ContractsPage() {
       }
       return true
     })
-  }, [query, typeFilter, statusFilter, filters.selectedChannelId, filters.tier, filters.pic])
+  }, [query, typeFilter, statusFilter, filters.selectedChannelId, filters.pic])
 
   const stats = contractChangeStats()
 

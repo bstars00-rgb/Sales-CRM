@@ -105,14 +105,10 @@ export default function OpportunitiesPage() {
       if (stageFilter !== 'All' && o.stage !== stageFilter) return false
       if (typeFilter !== 'All' && o.type !== typeFilter) return false
       if (filters.selectedChannelId && o.channelId !== filters.selectedChannelId) return false
-      if (filters.tier !== 'All') {
-        const ch = mockClients.find((c) => c.id === o.channelId)
-        if ((ch?.autoTier ?? ch?.tier) !== filters.tier) return false
-      }
       if (filters.pic !== 'All' && o.ownerUserId !== filters.pic) return false
       return true
     })
-  }, [opportunities, stageFilter, typeFilter, filters.tier, filters.pic, filters.selectedChannelId])
+  }, [opportunities, stageFilter, typeFilter, filters.pic, filters.selectedChannelId])
 
   // Funnel 카운트 (Open만, Won/Lost 제외)
   const funnelCounts = useMemo(() => {
