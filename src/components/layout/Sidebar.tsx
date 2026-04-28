@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  PanelLeftClose, PanelLeftOpen, RotateCcw, Search, Star,
-  Globe, User as UserIcon, Building2, X, Bookmark,
+  PanelLeftClose, PanelLeftOpen, RotateCcw, Search,
+  Globe, User as UserIcon, Building2, X, Bookmark, ChevronDown, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useFilters, SALES_COUNTRIES } from '@/contexts/FilterContext'
+import { useFilters, SALES_COUNTRIES, type SalesCountry } from '@/contexts/FilterContext'
 import { mockClients } from '@/mocks/clients'
 import { SALES_PICS } from '@/mocks/users'
 
@@ -83,37 +83,13 @@ export default function Sidebar() {
       </p>
 
       <div className="flex flex-col gap-5 px-4 py-4">
-        {/* 1. 판매 국가 (multi-select) */}
-        <Section icon={Globe} title="판매 국가" badge={filters.salesCountries.length > 0 ? `${filters.salesCountries.length}개 선택` : undefined}>
-          <div className="grid grid-cols-2 gap-1">
-            {SALES_COUNTRIES.map((c) => {
-              const selected = filters.salesCountries.includes(c.code)
-              return (
-                <button
-                  key={c.code}
-                  onClick={() => toggleCountry(c.code)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2 py-1.5 rounded-md border text-xs transition-colors',
-                    selected
-                      ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                      : 'border-border hover:bg-accent'
-                  )}
-                  aria-pressed={selected}
-                >
-                  <span className="text-base leading-none">{c.flag}</span>
-                  <span className="truncate">{c.label}</span>
-                </button>
-              )
-            })}
-          </div>
-          {filters.salesCountries.length > 0 && (
-            <button
-              onClick={() => setFilters({ salesCountries: [] })}
-              className="mt-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-            >
-              전체 해제
-            </button>
-          )}
+        {/* 1. 판매 국가 (검색 가능 multi-select dropdown) */}
+        <Section icon={Globe} title="판매 국가" badge={filters.salesCountries.length > 0 ? `${filters.salesCountries.length}개` : undefined}>
+          <CountryDropdown
+            selected={filters.salesCountries}
+            onToggle={toggleCountry}
+            onClear={() => setFilters({ salesCountries: [] })}
+          />
         </Section>
 
         {/* 2. 담당 PIC */}
@@ -249,6 +225,140 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+}
+
+// 검색 가능 멀티 선택 국가 드롭다운
+function CountryDropdown({
+  selected,
+  onToggle,
+  onClear,
+}: {
+  selected: SalesCountry[]
+  onToggle: (code: SalesCountry) => void
+  onClear: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  // outside click 닫기
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setQuery('')
+      }
+    }
+    const escHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setOpen(false); setQuery('') }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('keydown', escHandler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', escHandler)
+    }
+  }, [open])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return SALES_COUNTRIES
+    return SALES_COUNTRIES.filter(
+      (c) => c.label.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+    )
+  }, [query])
+
+  return (
+    <div ref={wrapRef} className="relative">
+      {/* Trigger Button */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'w-full flex items-center justify-between gap-2 h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent transition-colors',
+          open && 'ring-2 ring-ring'
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-1.5 flex-1 min-w-0">
+          {selected.length === 0 ? (
+            <span className="text-muted-foreground">국가 선택...</span>
+          ) : (
+            <>
+              <span className="text-base leading-none">
+                {selected.slice(0, 3).map((c) => SALES_COUNTRIES.find((s) => s.code === c)?.flag).join(' ')}
+                {selected.length > 3 && ' …'}
+              </span>
+              <span className="text-xs text-muted-foreground">{selected.length}개</span>
+            </>
+          )}
+        </span>
+        <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0', open && 'rotate-180')} />
+      </button>
+
+      {/* Dropdown Panel */}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+          {/* Search Input */}
+          <div className="relative border-b border-border">
+            <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="국가명 또는 코드 검색..."
+              className="w-full pl-7 pr-3 h-9 bg-transparent text-xs focus:outline-none"
+            />
+          </div>
+
+          {/* Selected count + Clear all */}
+          {selected.length > 0 && (
+            <div className="flex items-center justify-between px-2 py-1.5 border-b border-border bg-muted/30 text-[10px]">
+              <span className="text-muted-foreground">{selected.length}개 선택됨</span>
+              <button
+                onClick={() => { onClear(); }}
+                className="text-primary hover:underline"
+              >
+                전체 해제
+              </button>
+            </div>
+          )}
+
+          {/* Country List */}
+          <ul className="max-h-64 overflow-y-auto py-1" role="listbox">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-3 text-xs text-muted-foreground text-center">
+                검색 결과 없음
+              </li>
+            ) : (
+              filtered.map((c) => {
+                const isSelected = selected.includes(c.code)
+                return (
+                  <li key={c.code} role="option" aria-selected={isSelected}>
+                    <button
+                      onClick={() => onToggle(c.code)}
+                      className={cn(
+                        'w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors',
+                        isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
+                      )}
+                    >
+                      <span className="w-4 h-4 rounded border border-border flex items-center justify-center shrink-0 bg-background">
+                        {isSelected && <Check className="w-3 h-3 text-primary" />}
+                      </span>
+                      <span className="text-base leading-none">{c.flag}</span>
+                      <span className="flex-1">{c.label}</span>
+                      <span className="text-[10px] text-muted-foreground/70 font-mono">{c.code}</span>
+                    </button>
+                  </li>
+                )
+              })
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 
