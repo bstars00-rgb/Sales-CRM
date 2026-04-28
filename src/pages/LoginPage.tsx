@@ -134,12 +134,10 @@ export default function LoginPage() {
             B2B Vertical SaaS · Round 9 (Option C)
           </div>
 
-          <h2 className="text-7xl xl:text-8xl 2xl:text-9xl font-bold tracking-tight leading-[1.05] break-keep">
+          <h2 className="text-6xl xl:text-7xl 2xl:text-8xl font-bold tracking-tight leading-[1.05] break-keep">
             <span className="bg-gradient-to-r from-indigo-300 via-cyan-300 to-emerald-300 bg-clip-text text-transparent drop-shadow-lg">
-              데이터로<br />움직이는<br />
-              <span className="bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-300 bg-clip-text text-transparent whitespace-nowrap">채널&nbsp;영업</span>
-              <br />
-              <span className="bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-300 bg-clip-text text-transparent whitespace-nowrap">플랫폼</span>
+              데이터로 움직이는<br />
+              <span className="bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-300 bg-clip-text text-transparent whitespace-nowrap">채널&nbsp;영업&nbsp;플랫폼</span>
             </span>
           </h2>
 
