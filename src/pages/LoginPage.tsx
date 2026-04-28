@@ -36,11 +36,9 @@ export default function LoginPage() {
   }
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'system' ? Monitor : Sun
 
+  // Round 10: 모든 직급이 로그인 후 Overview('/') 메인으로 라우팅
   if (user) {
-    const target = ['ceo', 'c_level', 'regional_director', 'director'].includes(user.role)
-      ? '/'
-      : '/briefing'
-    return <Navigate to={target} replace />
+    return <Navigate to="/" replace />
   }
 
   const selectLang = (code: LangCode) => {
