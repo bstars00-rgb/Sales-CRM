@@ -167,8 +167,11 @@ export type TaskCategory =
   | 'Internal'
   | 'Follow-up'
 
-export type TaskStatus = 'Planned' | 'InProgress' | 'Done' | 'Skipped'
+// 기존 4값 + Critical 6 PRD v1에서 추가한 'Waiting' / 'Blocked' = 6값
+// (Skipped는 후방 호환용 유지, 신규 작성은 5값만 사용)
+export type TaskStatus = 'Planned' | 'InProgress' | 'Waiting' | 'Done' | 'Blocked' | 'Skipped'
 export type TaskRank = 1 | 2 | 3 | 4 | 5 | 6
+export type TaskImportance = 1 | 2 | 3 // ⭐~⭐⭐⭐ (Critical 6 PRD)
 
 export interface Task {
   id: string
@@ -186,6 +189,64 @@ export interface Task {
   carryOver?: boolean
   createdAt: string
   updatedAt: string
+  // ===== Round 11 Critical 6 PRD v1 확장 (모두 옵션) =====
+  description?: string         // 상세 설명 (최대 2000자)
+  importance?: TaskImportance  // 중요도 (1~3)
+  collaborators?: string[]     // 협업자 userId[]
+  dueAt?: string              // ISO8601 마감시간
+  blockedReason?: string      // status=Blocked 시 필수 (10자 이상)
+  carriedOverFrom?: string    // 어제 미완료 → 오늘 이월된 원본 Task id
+  carryCount?: number         // 이월 횟수 (3+ 시 자동 경고)
+  attachments?: TaskAttachment[]
+  // 옵션 (Phase 2): okrId, projectId, customCategoryTags
+}
+
+// Critical 6 PRD: 첨부파일/링크
+export interface TaskAttachment {
+  id: string
+  type: 'file' | 'link'
+  url: string
+  name: string
+  size?: number               // bytes (file only)
+  uploadedBy: string
+  uploadedAt: string
+}
+
+// Critical 6 PRD: 일일 작성 단위 (DailyCritical6)
+export interface DailyCritical6 {
+  id: string                              // dc6-{nanoid}
+  userId: string
+  date: string                            // YYYY-MM-DD (KST)
+  taskCount: 0 | 1 | 2 | 3 | 4 | 5 | 6
+  status: 'draft' | 'submitted' | 'finalized'
+  submittedAt?: string
+  carryOverCount: number                  // 어제로부터 이월된 항목 수
+  startTime?: string                      // 작성 시작
+  finishTime?: string
+  durationSeconds?: number                // 3분 이하 목표
+}
+
+// Critical 6 PRD: 댓글
+export interface Critical6Comment {
+  id: string                              // cm-{nanoid}
+  taskId: string
+  authorId: string
+  body: string                            // 마크다운 (멘션 @user 자동 인식)
+  mentions: string[]                      // userId[]
+  attachments: TaskAttachment[]
+  createdAt: string
+  editedAt?: string
+}
+
+// Critical 6 PRD: 상태 이력
+export interface TaskStatusHistory {
+  id: string
+  taskId: string
+  fromStatus: TaskStatus | null
+  toStatus: TaskStatus
+  changedBy: string                       // userId
+  changedAt: string
+  reason?: string                         // status=Blocked 시 필수
 }
 
 // ========== Daily Briefing (FR-004) ==========
